@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-helpers";
-import { parseBody } from "@/lib/validation";
+import { parseRequestBody } from "@/lib/validation";
 import { conflictError } from "@/lib/errors";
 
 const CreateOrgSchema = z.object({
@@ -20,41 +21,43 @@ export async function POST(request: NextRequest) {
   if (!authResult.ok) return authResult.error;
   const { userId } = authResult.value;
 
-  const body = await request.json();
-  const parsed = parseBody(CreateOrgSchema, body);
+  const parsed = await parseRequestBody(request, CreateOrgSchema);
   if (!parsed.ok) return parsed.error;
   const { name, slug } = parsed.data;
 
-  const existing = await prisma.organization.findUnique({
-    where: { slug },
-  });
-  if (existing) {
-    return conflictError("An organization with this slug already exists");
-  }
-
-  const org = await prisma.organization.create({
-    data: {
-      name,
-      slug,
-      memberships: {
-        create: {
-          userId,
-          role: "admin",
+  try {
+    const org = await prisma.organization.create({
+      data: {
+        name,
+        slug,
+        memberships: {
+          create: {
+            userId,
+            role: "admin",
+          },
         },
       },
-    },
-  });
+    });
 
-  return NextResponse.json(
-    {
-      id: org.id,
-      name: org.name,
-      slug: org.slug,
-      created_at: org.createdAt.toISOString(),
-      updated_at: org.updatedAt.toISOString(),
-    },
-    { status: 201 }
-  );
+    return NextResponse.json(
+      {
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+        created_at: org.createdAt.toISOString(),
+        updated_at: org.updatedAt.toISOString(),
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return conflictError("An organization with this slug already exists");
+    }
+    throw error;
+  }
 }
 
 export async function GET() {

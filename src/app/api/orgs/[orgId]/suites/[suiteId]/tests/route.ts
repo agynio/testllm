@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAuthWithMembership } from "@/lib/auth-helpers";
-import { parseBody } from "@/lib/validation";
+import { parseRequestBody } from "@/lib/validation";
 import { conflictError, notFoundError } from "@/lib/errors";
 import { CreateTestSchema } from "@/lib/schemas/test-items";
 import { findSuiteOrNull, formatTestResponse } from "@/lib/test-helpers";
@@ -18,41 +19,43 @@ export async function POST(
   const suite = await findSuiteOrNull(orgId, suiteId);
   if (!suite) return notFoundError("Test suite");
 
-  const body = await request.json();
-  const parsed = parseBody(CreateTestSchema, body);
+  const parsed = await parseRequestBody(request, CreateTestSchema);
   if (!parsed.ok) return parsed.error;
   const { name, description, items } = parsed.data;
 
-  const existing = await prisma.test.findUnique({
-    where: { testSuiteId_name: { testSuiteId: suiteId, name } },
-  });
-  if (existing) {
-    return conflictError("A test with this name already exists in the suite");
+  try {
+    const test = await prisma.test.create({
+      data: {
+        testSuiteId: suiteId,
+        name,
+        description,
+        items: {
+          create: items.map((item, index) => ({
+            position: index,
+            type: item.type,
+            content: item.content,
+          })),
+        },
+      },
+      include: {
+        items: {
+          orderBy: { position: "asc" },
+        },
+      },
+    });
+
+    return NextResponse.json(formatTestResponse(test, test.items), {
+      status: 201,
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return conflictError("A test with this name already exists in the suite");
+    }
+    throw error;
   }
-
-  const test = await prisma.test.create({
-    data: {
-      testSuiteId: suiteId,
-      name,
-      description,
-      items: {
-        create: items.map((item, index) => ({
-          position: index,
-          type: item.type,
-          content: item.content,
-        })),
-      },
-    },
-    include: {
-      items: {
-        orderBy: { position: "asc" },
-      },
-    },
-  });
-
-  return NextResponse.json(formatTestResponse(test, test.items), {
-    status: 201,
-  });
 }
 
 export async function GET(

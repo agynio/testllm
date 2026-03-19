@@ -1,3 +1,4 @@
+import type { TestItemType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 type TestSummary = {
@@ -12,8 +13,25 @@ type TestSummary = {
 type TestItemSummary = {
   id: string;
   position: number;
-  type: string;
+  type: TestItemType;
   content: unknown;
+};
+
+export type TestResponseItem = {
+  id: string;
+  position: number;
+  type: TestItemType;
+  content: unknown;
+};
+
+export type TestResponseBody = {
+  id: string;
+  test_suite_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  items?: TestResponseItem[];
 };
 
 export async function findSuiteOrNull(orgId: string, suiteId: string) {
@@ -42,8 +60,8 @@ export async function findTestOrNull(
 export function formatTestResponse(
   test: TestSummary,
   items?: TestItemSummary[]
-) {
-  const response: Record<string, unknown> = {
+): TestResponseBody {
+  const response: TestResponseBody = {
     id: test.id,
     test_suite_id: test.testSuiteId,
     name: test.name,

@@ -1,330 +1,97 @@
-import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { openaiError } from "@/lib/errors";
+import {
+  InputSchema,
+  isMatchError,
+  matchInput,
+  normalizeInput,
+  parseTestSequence,
+} from "@/lib/responses/matching";
+import { formatResponse } from "@/lib/responses/formatting";
 
-interface MessageContent {
-  role: string;
-  content: string;
-}
+const RequestSchema = z
+  .object({
+    model: z.string().min(1, { message: "model is required" }),
+    input: InputSchema,
+  })
+  .passthrough();
 
-interface FunctionCallContent {
-  call_id: string;
-  name: string;
-  arguments: string;
-}
+type RequestBody = z.infer<typeof RequestSchema>;
 
-interface FunctionCallOutputContent {
-  call_id: string;
-  output: string;
-}
+type RequestParseResult =
+  | { ok: true; data: RequestBody }
+  | { ok: false; error: NextResponse };
 
-type ItemContent = MessageContent | FunctionCallContent | FunctionCallOutputContent;
-
-interface TestItemRecord {
-  id: string;
-  position: number;
-  type: string;
-  content: ItemContent;
-}
-
-function isOutputItem(item: TestItemRecord): boolean {
-  if (item.type === "function_call") return true;
-  if (item.type === "message") {
-    const content = item.content as MessageContent;
-    return content.role === "assistant";
-  }
-  return false;
-}
-
-interface NormalizedInputMessage {
-  type: "message";
-  role: string;
-  content: string;
-}
-
-interface NormalizedInputFunctionCall {
-  type: "function_call";
-  call_id: string;
-  name: string;
-  arguments: string;
-}
-
-interface NormalizedInputFunctionCallOutput {
-  type: "function_call_output";
-  call_id: string;
-  output: string;
-}
-
-type NormalizedInputItem =
-  | NormalizedInputMessage
-  | NormalizedInputFunctionCall
-  | NormalizedInputFunctionCallOutput;
-
-function normalizeInput(input: unknown): NormalizedInputItem[] {
-  if (typeof input === "string") {
-    return [{ type: "message", role: "user", content: input }];
-  }
-
-  const items = input as Array<Record<string, unknown>>;
-  return items.map((item): NormalizedInputItem => {
-    if (item.type === "function_call") {
-      return {
-        type: "function_call",
-        call_id: item.call_id as string,
-        name: item.name as string,
-        arguments: item.arguments as string,
-      };
-    }
-
-    if (item.type === "function_call_output") {
-      return {
-        type: "function_call_output",
-        call_id: item.call_id as string,
-        output: item.output as string,
-      };
-    }
-
+async function parseRequestBody(
+  request: NextRequest
+): Promise<RequestParseResult> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
     return {
-      type: "message",
-      role: item.role as string,
-      content: item.content as string,
-    };
-  });
-}
-
-interface MatchSuccess {
-  outputItems: TestItemRecord[];
-}
-
-interface MatchError {
-  status: number;
-  message: string;
-  type: string;
-  code: string;
-}
-
-type MatchResult = MatchSuccess | MatchError;
-
-function isMatchError(result: MatchResult): result is MatchError {
-  return "status" in result;
-}
-
-function matchInput(
-  sequence: TestItemRecord[],
-  input: NormalizedInputItem[]
-): MatchResult {
-  const expectedItems: TestItemRecord[] = [];
-  let matchBoundary = -1;
-
-  for (let i = 0; i < sequence.length; i++) {
-    const item = sequence[i];
-
-    if (isOutputItem(item)) {
-      if (expectedItems.length === input.length) {
-        matchBoundary = i;
-        break;
-      }
-      expectedItems.push(item);
-    } else {
-      expectedItems.push(item);
-    }
-  }
-
-  if (matchBoundary === -1) {
-    if (expectedItems.length <= input.length) {
-      return {
-        status: 400,
-        message: "Input extends beyond the defined test sequence",
-        type: "invalid_request_error",
-        code: "sequence_exhausted",
-      };
-    }
-    return {
-      status: 400,
-      message:
-        `Input mismatch: expected ${expectedItems.length} input items ` +
-        `but got ${input.length}`,
-      type: "invalid_request_error",
-      code: "input_mismatch",
+      ok: false,
+      error: openaiError(
+        400,
+        "Invalid JSON body",
+        "invalid_request_error",
+        "invalid_json"
+      ),
     };
   }
 
-  for (let i = 0; i < expectedItems.length; i++) {
-    const expected = expectedItems[i];
-    const actual = input[i];
-    const mismatch = compareItems(expected, actual, i);
-    if (mismatch) return mismatch;
-  }
-
-  const outputItems: TestItemRecord[] = [];
-  for (let i = matchBoundary; i < sequence.length; i++) {
-    if (isOutputItem(sequence[i])) {
-      outputItems.push(sequence[i]);
-    } else {
-      break;
-    }
-  }
-
-  return { outputItems };
-}
-
-function compareItems(
-  expected: TestItemRecord,
-  actual: NormalizedInputItem,
-  position: number
-): MatchError | null {
-  if (expected.type !== actual.type) {
-    return {
-      status: 400,
-      message:
-        `Input mismatch at position ${position}: ` +
-        `expected type '${expected.type}', got type '${actual.type}'`,
-      type: "invalid_request_error",
-      code: "input_mismatch",
-    };
-  }
-
-  if (expected.type === "message" && actual.type === "message") {
-    const exp = expected.content as MessageContent;
-    if (exp.role !== actual.role || exp.content !== actual.content) {
-      return {
-        status: 400,
-        message:
-          `Input mismatch at position ${position}: ` +
-          `expected message with role '${exp.role}' and content ` +
-          `'${exp.content}', got message with role '${actual.role}' ` +
-          `and content '${actual.content}'`,
-        type: "invalid_request_error",
-        code: "input_mismatch",
-      };
-    }
-    return null;
-  }
-
-  if (expected.type === "function_call" && actual.type === "function_call") {
-    const exp = expected.content as FunctionCallContent;
+  const parsed = RequestSchema.safeParse(body);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const path = issue.path.join(".");
     if (
-      exp.call_id !== actual.call_id ||
-      exp.name !== actual.name ||
-      exp.arguments !== actual.arguments
+      issue.code === "invalid_type" &&
+      "received" in issue &&
+      issue.received === "undefined" &&
+      path === "model"
     ) {
       return {
-        status: 400,
-        message:
-          `Input mismatch at position ${position}: ` +
-          `expected function_call '${exp.name}' with call_id '${exp.call_id}', ` +
-          `got function_call '${actual.name}' with call_id '${actual.call_id}'`,
-        type: "invalid_request_error",
-        code: "input_mismatch",
+        ok: false,
+        error: openaiError(
+          400,
+          "Missing required field: model",
+          "invalid_request_error",
+          "missing_model"
+        ),
       };
     }
-    return null;
-  }
-
-  if (
-    expected.type === "function_call_output" &&
-    actual.type === "function_call_output"
-  ) {
-    const exp = expected.content as FunctionCallOutputContent;
-    if (exp.call_id !== actual.call_id || exp.output !== actual.output) {
+    if (
+      issue.code === "invalid_type" &&
+      "received" in issue &&
+      issue.received === "undefined" &&
+      path === "input"
+    ) {
       return {
-        status: 400,
-        message:
-          `Input mismatch at position ${position}: ` +
-          `expected function_call_output with call_id '${exp.call_id}', ` +
-          `got function_call_output with call_id '${actual.call_id}'`,
-        type: "invalid_request_error",
-        code: "input_mismatch",
+        ok: false,
+        error: openaiError(
+          400,
+          "Missing required field: input",
+          "invalid_request_error",
+          "missing_input"
+        ),
       };
     }
-    return null;
-  }
 
-  throw new Error(
-    `Unhandled item type comparison: expected '${expected.type}', actual '${actual.type}'`
-  );
-}
-
-interface OpenAIOutputMessage {
-  id: string;
-  type: "message";
-  role: "assistant";
-  status: "completed";
-  content: Array<{
-    type: "output_text";
-    text: string;
-    annotations: [];
-  }>;
-}
-
-interface OpenAIOutputFunctionCall {
-  id: string;
-  type: "function_call";
-  call_id: string;
-  name: string;
-  arguments: string;
-  status: "completed";
-}
-
-type OpenAIOutputItem = OpenAIOutputMessage | OpenAIOutputFunctionCall;
-
-function formatOutputItem(item: TestItemRecord): OpenAIOutputItem {
-  if (item.type === "message") {
-    const content = item.content as MessageContent;
+    const prefix = issue.path.length > 0 ? `${path}: ` : "";
     return {
-      id: `msg_${randomUUID()}`,
-      type: "message",
-      role: "assistant",
-      status: "completed",
-      content: [
-        {
-          type: "output_text",
-          text: content.content,
-          annotations: [],
-        },
-      ],
+      ok: false,
+      error: openaiError(
+        400,
+        `${prefix}${issue.message}`,
+        "invalid_request_error",
+        "invalid_request"
+      ),
     };
   }
 
-  if (item.type === "function_call") {
-    const content = item.content as FunctionCallContent;
-    return {
-      id: `fc_${randomUUID()}`,
-      type: "function_call",
-      call_id: content.call_id,
-      name: content.name,
-      arguments: content.arguments,
-      status: "completed",
-    };
-  }
-
-  throw new Error(
-    `Unexpected output item type: ${item.type} at position ${item.position}`
-  );
-}
-
-interface OpenAIResponse {
-  id: string;
-  object: "response";
-  created_at: number;
-  model: string;
-  output: OpenAIOutputItem[];
-  status: "completed";
-}
-
-function formatResponse(
-  model: string,
-  outputItems: TestItemRecord[]
-): OpenAIResponse {
-  return {
-    id: `resp_${randomUUID()}`,
-    object: "response",
-    created_at: Math.floor(Date.now() / 1000),
-    model,
-    output: outputItems.map(formatOutputItem),
-    status: "completed",
-  };
+  return { ok: true, data: parsed.data };
 }
 
 export async function POST(
@@ -333,26 +100,11 @@ export async function POST(
 ) {
   const { orgSlug, suiteName } = await params;
 
-  const body = await request.json();
-  const model = body.model as string | undefined;
-  const rawInput = body.input;
+  const parsedRequest = await parseRequestBody(request);
+  if (!parsedRequest.ok) return parsedRequest.error;
 
-  if (!model) {
-    return openaiError(
-      400,
-      "Missing required field: model",
-      "invalid_request_error",
-      "missing_model"
-    );
-  }
-  if (rawInput === undefined || rawInput === null) {
-    return openaiError(
-      400,
-      "Missing required field: input",
-      "invalid_request_error",
-      "missing_input"
-    );
-  }
+  const { model, input } = parsedRequest.data;
+  const normalizedInput = normalizeInput(input);
 
   const org = await prisma.organization.findUnique({
     where: { slug: orgSlug },
@@ -390,17 +142,13 @@ export async function POST(
     );
   }
 
-  const sequence = await prisma.testItem.findMany({
+  const rawSequence = await prisma.testItem.findMany({
     where: { testId: test.id },
     orderBy: { position: "asc" },
   });
+  const sequence = parseTestSequence(rawSequence);
 
-  const normalizedInput = normalizeInput(rawInput);
-  const result = matchInput(
-    sequence as unknown as TestItemRecord[],
-    normalizedInput
-  );
-
+  const result = matchInput(sequence, normalizedInput);
   if (isMatchError(result)) {
     return openaiError(result.status, result.message, result.type, result.code);
   }

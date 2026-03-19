@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAuthWithMembership, requireRole } from "@/lib/auth-helpers";
-import { parseBody } from "@/lib/validation";
+import { parseRequestBody } from "@/lib/validation";
 
 const UpdateOrgSchema = z.object({
   name: z.string().min(1).optional(),
@@ -39,8 +39,7 @@ export async function PATCH(
   const authResult = await requireRole(orgId, "admin");
   if (!authResult.ok) return authResult.error;
 
-  const body = await request.json();
-  const parsed = parseBody(UpdateOrgSchema, body);
+  const parsed = await parseRequestBody(request, UpdateOrgSchema);
   if (!parsed.ok) return parsed.error;
 
   const org = await prisma.organization.update({

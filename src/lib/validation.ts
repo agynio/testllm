@@ -22,3 +22,20 @@ export function parseBody<T>(
   }
   return { ok: true, data: result.data };
 }
+
+export async function parseRequestBody<T>(
+  request: Request,
+  schema: z.ZodType<T>
+): Promise<ParseResult<T>> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return {
+      ok: false,
+      error: validationError("Invalid JSON body"),
+    };
+  }
+
+  return parseBody(schema, body);
+}

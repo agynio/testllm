@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAuthWithMembership } from "@/lib/auth-helpers";
-import { parseBody } from "@/lib/validation";
+import { parseRequestBody } from "@/lib/validation";
 import { conflictError, notFoundError } from "@/lib/errors";
 
 const UpdateSuiteSchema = z.object({
@@ -45,8 +45,7 @@ export async function PATCH(
   const authResult = await getAuthWithMembership(orgId);
   if (!authResult.ok) return authResult.error;
 
-  const body = await request.json();
-  const parsed = parseBody(UpdateSuiteSchema, body);
+  const parsed = await parseRequestBody(request, UpdateSuiteSchema);
   if (!parsed.ok) return parsed.error;
 
   const existing = await prisma.testSuite.findUnique({
