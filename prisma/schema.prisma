@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum OrgRole {
+  admin
+  member
+}
+
+enum TestItemType {
+  message
+  function_call
+  function_call_output
+}
+
+// ─── Models ──────────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  memberships OrgMembership[]
+  invites     Invite[]
+  testSuites  TestSuite[]
+
+  @@map("organizations")
+}
+
+model User {
+  id          String   @id @default(uuid()) @db.Uuid
+  oidcSubject String   @unique @map("oidc_subject")
+  email       String
+  name        String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  memberships OrgMembership[]
+
+  @@map("users")
+}
+
+model OrgMembership {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @map("org_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      OrgRole
+  createdAt DateTime @default(now()) @map("created_at")
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@map("org_memberships")
+}
+
+model Invite {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @map("org_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("invites")
+}
+
+model TestSuite {
+  id          String   @id @default(uuid()) @db.Uuid
+  orgId       String   @map("org_id") @db.Uuid
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  tests Test[]
+
+  @@unique([orgId, name])
+  @@map("test_suites")
+}
+
+model Test {
+  id          String   @id @default(uuid()) @db.Uuid
+  testSuiteId String   @map("test_suite_id") @db.Uuid
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  testSuite TestSuite  @relation(fields: [testSuiteId], references: [id], onDelete: Cascade)
+  items     TestItem[]
+
+  @@unique([testSuiteId, name])
+  @@map("tests")
+}
+
+model TestItem {
+  id        String       @id @default(uuid()) @db.Uuid
+  testId    String       @map("test_id") @db.Uuid
+  position  Int
+  type      TestItemType
+  content   Json
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  test Test @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@unique([testId, position])
+  @@index([testId, position])
+  @@map("test_items")
+}
