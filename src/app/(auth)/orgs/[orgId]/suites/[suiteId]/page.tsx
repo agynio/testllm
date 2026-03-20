@@ -46,7 +46,7 @@ export default async function SuiteDetailPage({
     include: { _count: { select: { items: true } } },
   });
 
-  const endpoint = `/v1/org/${suite.org.slug}/suite/${suite.name}/responses`;
+  const endpoint = `https://testllm.dev/v1/org/${suite.org.slug}/suite/${suite.name}/responses`;
 
   return (
     <div className="space-y-6">
@@ -144,9 +144,9 @@ export default async function SuiteDetailPage({
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-3">
           <code className="rounded bg-muted px-2 py-1 text-sm font-mono">
-            POST {endpoint}
+            {endpoint}
           </code>
-          <CopyButton value={`POST ${endpoint}`} showLabel />
+          <CopyButton value={endpoint} showLabel />
         </CardContent>
       </Card>
     </div>

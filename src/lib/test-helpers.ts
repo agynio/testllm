@@ -49,7 +49,7 @@ export async function findTestOrNull(
 ) {
   const test = await prisma.test.findUnique({
     where: { id: testId },
-    include: { testSuite: true },
+    include: { testSuite: { include: { org: true } } },
   });
   if (!test) return null;
   if (test.testSuiteId !== suiteId) return null;
