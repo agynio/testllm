@@ -46,12 +46,24 @@ async function parseRequestBody(
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const path = issue.path.join(".");
-    if (
+
+    const isMissingModel =
       issue.code === "invalid_type" &&
-      "received" in issue &&
-      issue.received === "undefined" &&
-      path === "model"
-    ) {
+      path === "model" &&
+      issue.message.includes("received undefined");
+    const isMissingInput =
+      issue.code === "invalid_union" &&
+      path === "input" &&
+      issue.errors.length > 0 &&
+      issue.errors.every((unionIssues) =>
+        unionIssues.some(
+          (unionIssue) =>
+            unionIssue.code === "invalid_type" &&
+            unionIssue.message.includes("received undefined")
+        )
+      );
+
+    if (isMissingModel) {
       return {
         ok: false,
         error: openaiError(
@@ -62,12 +74,7 @@ async function parseRequestBody(
         ),
       };
     }
-    if (
-      issue.code === "invalid_type" &&
-      "received" in issue &&
-      issue.received === "undefined" &&
-      path === "input"
-    ) {
+    if (isMissingInput) {
       return {
         ok: false,
         error: openaiError(
