@@ -1,8 +1,14 @@
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 
 export default async function DashboardPage() {
   const session = await auth();
-  const userLabel = session?.user?.name ?? session?.user?.email;
+  if (!session) {
+    redirect("/");
+  }
+
+  const userName = session.user.name;
+  const userEmail = session.user.email;
 
   return (
     <div className="flex min-h-screen flex-col bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -12,7 +18,10 @@ export default async function DashboardPage() {
             Dashboard
           </h1>
           <p className="text-lg text-slate-600 dark:text-slate-300">
-            {userLabel ? `Welcome, ${userLabel}.` : "Welcome to TestLLM."}
+            Welcome, {userName}.
+          </p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {userEmail}
           </p>
         </header>
         <section className="text-base text-slate-600 dark:text-slate-300">
