@@ -1,4 +1,11 @@
-export const simpleMessageSequence = [
+import type { Prisma, TestItemType } from "@prisma/client";
+
+export type TestItemFixture = {
+  type: TestItemType;
+  content: Prisma.InputJsonValue;
+};
+
+export const simpleMessageSequence: TestItemFixture[] = [
   {
     type: "message",
     content: {
@@ -15,7 +22,7 @@ export const simpleMessageSequence = [
   },
 ];
 
-export const weatherSequence = [
+export const weatherSequence: TestItemFixture[] = [
   {
     type: "message",
     content: {
@@ -54,7 +61,7 @@ export const weatherSequence = [
   },
 ];
 
-export const multiOutputSequence = [
+export const multiOutputSequence: TestItemFixture[] = [
   {
     type: "message",
     content: {
@@ -86,8 +93,8 @@ export const multiOutputSequence = [
   },
 ];
 
-export function withPositions<T extends { type: string; content: unknown }>(
-  items: T[]
+export function withPositions<T extends TestItemFixture>(
+  items: ReadonlyArray<T>
 ) {
   return items.map((item, index) => ({
     position: index,

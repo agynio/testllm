@@ -4,6 +4,7 @@ import { prisma } from "../helpers/prisma";
 import {
   multiOutputSequence,
   simpleMessageSequence,
+  TestItemFixture,
   weatherSequence,
   withPositions,
 } from "../helpers/fixtures";
@@ -17,7 +18,7 @@ async function seedResponseTest({
   orgSlug?: string;
   suiteName?: string;
   testName?: string;
-  items?: Array<{ type: string; content: unknown }>;
+  items?: ReadonlyArray<TestItemFixture>;
 }) {
   const org = await prisma.organization.create({
     data: { name: "Acme", slug: orgSlug },
@@ -342,7 +343,7 @@ describe("responses api", () => {
   });
 
   it("returns input_mismatch when input is shorter than expected", async () => {
-    const inputOnlySequence = [
+    const inputOnlySequence: TestItemFixture[] = [
       {
         type: "message",
         content: { role: "user", content: "First" },

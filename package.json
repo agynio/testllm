@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:e2e": "vitest run --config vitest.config.e2e.ts"
+    "test:e2e": "vitest run --config vitest.config.e2e.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.5.0",
