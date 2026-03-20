@@ -23,13 +23,13 @@ export default async function MembersPage({
 }) {
   const { orgId } = await params;
   const session = await auth();
-
-  if (!session?.user?.id) {
-    notFound();
+  const userId = session?.user?.id;
+  if (!userId) {
+    throw new Error("Expected authenticated session");
   }
 
   const currentMembership = await prisma.orgMembership.findUnique({
-    where: { orgId_userId: { orgId, userId: session.user.id } },
+    where: { orgId_userId: { orgId, userId } },
   });
 
   if (!currentMembership) {
@@ -60,7 +60,7 @@ export default async function MembersPage({
         </TableHeader>
         <TableBody>
           {memberships.map((membership) => {
-            const isSelf = membership.user.id === session.user.id;
+            const isSelf = membership.user.id === userId;
             const isLastAdmin =
               membership.role === "admin" && adminCount <= 1;
 

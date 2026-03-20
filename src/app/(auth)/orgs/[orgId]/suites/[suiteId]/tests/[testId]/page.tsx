@@ -5,13 +5,7 @@ import { deleteTest } from "@/actions/tests";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { PageHeader } from "@/components/page-header";
-import {
-  TestItemList,
-  type FunctionCallContent,
-  type FunctionCallOutputContent,
-  type MessageContent,
-  type TestItemListItem,
-} from "@/components/test-item-list";
+import { TestItemList } from "@/components/test-item-list";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { findTestOrNull } from "@/lib/test-helpers";
+import { mapPrismaItemsToListItems } from "@/lib/test-item-mappers";
 
 export default async function TestDetailPage({
   params,
@@ -40,27 +35,7 @@ export default async function TestDetailPage({
     orderBy: { position: "asc" },
   });
 
-  const listItems: TestItemListItem[] = items.map((item) => {
-    if (item.type === "message") {
-      return {
-        id: item.id,
-        type: "message",
-        content: item.content as MessageContent,
-      };
-    }
-    if (item.type === "function_call") {
-      return {
-        id: item.id,
-        type: "function_call",
-        content: item.content as FunctionCallContent,
-      };
-    }
-    return {
-      id: item.id,
-      type: "function_call_output",
-      content: item.content as FunctionCallOutputContent,
-    };
-  });
+  const listItems = mapPrismaItemsToListItems(items);
 
   return (
     <div className="space-y-6">

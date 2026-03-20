@@ -4,17 +4,12 @@ import * as React from "react";
 import Link from "next/link";
 import { useActionState } from "react";
 import { updateTest } from "@/actions/tests";
-import type { ActionResult } from "@/actions/orgs";
 import { TestItemEditor } from "@/components/test-item-editor/test-item-editor";
 import type { TestItemDraft } from "@/components/test-item-editor/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
-type ActionState = ActionResult;
-
-const initialState: ActionState = { success: false, error: "" };
 
 type EditTestFormProps = {
   orgId: string;
@@ -35,7 +30,7 @@ export function EditTestForm({
 }: EditTestFormProps) {
   const [state, formAction, pending] = useActionState(
     updateTest,
-    initialState
+    null
   );
 
   return (
@@ -60,7 +55,7 @@ export function EditTestForm({
         <Label>Conversation Items</Label>
         <TestItemEditor inputName="items" initialItems={items} />
       </div>
-      {state.success === false && state.error ? (
+      {state?.success === false && state.error ? (
         <p className="text-sm text-destructive">{state.error}</p>
       ) : null}
       <div className="flex justify-end gap-3">

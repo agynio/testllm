@@ -20,13 +20,13 @@ export default async function OrgSettingsPage({
 }) {
   const { orgId } = await params;
   const session = await auth();
-
-  if (!session?.user?.id) {
-    notFound();
+  const userId = session?.user?.id;
+  if (!userId) {
+    throw new Error("Expected authenticated session");
   }
 
   const membership = await prisma.orgMembership.findUnique({
-    where: { orgId_userId: { orgId, userId: session.user.id } },
+    where: { orgId_userId: { orgId, userId } },
     include: { org: true },
   });
 

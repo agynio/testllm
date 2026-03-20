@@ -4,15 +4,10 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { EditTestForm } from "@/app/(auth)/orgs/[orgId]/suites/[suiteId]/tests/[testId]/edit/form";
 import { PageHeader } from "@/components/page-header";
-import type {
-  FunctionCallContent,
-  FunctionCallOutputContent,
-  MessageContent,
-  TestItemDraft,
-} from "@/components/test-item-editor/types";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 import { findTestOrNull } from "@/lib/test-helpers";
+import { mapPrismaItemsToDrafts } from "@/lib/test-item-mappers";
 
 export default async function EditTestPage({
   params,
@@ -31,28 +26,7 @@ export default async function EditTestPage({
     orderBy: { position: "asc" },
   });
 
-  const initialItems: TestItemDraft[] = items.map((item) => {
-    const clientId = randomUUID();
-    if (item.type === "message") {
-      return {
-        clientId,
-        type: "message",
-        content: item.content as MessageContent,
-      };
-    }
-    if (item.type === "function_call") {
-      return {
-        clientId,
-        type: "function_call",
-        content: item.content as FunctionCallContent,
-      };
-    }
-    return {
-      clientId,
-      type: "function_call_output",
-      content: item.content as FunctionCallOutputContent,
-    };
-  });
+  const initialItems = mapPrismaItemsToDrafts(items, randomUUID);
 
   return (
     <div className="space-y-6">

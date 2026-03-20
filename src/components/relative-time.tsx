@@ -31,20 +31,22 @@ function formatRelative(date: Date) {
 }
 
 export function RelativeTime({ value, className }: RelativeTimeProps) {
-  const [label, setLabel] = React.useState("");
+  const date = React.useMemo(
+    () => (typeof value === "string" ? new Date(value) : value),
+    [value]
+  );
+  const [label, setLabel] = React.useState(() => formatRelative(date));
 
   React.useEffect(() => {
-    const date = typeof value === "string" ? new Date(value) : value;
     setLabel(formatRelative(date));
-  }, [value]);
-
-  const date = typeof value === "string" ? new Date(value) : value;
+  }, [date]);
 
   return (
     <time
       className={cn("text-sm text-muted-foreground", className)}
       dateTime={date.toISOString()}
       title={date.toLocaleString()}
+      suppressHydrationWarning
     >
       {label}
     </time>

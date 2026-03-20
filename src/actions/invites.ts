@@ -4,23 +4,12 @@ import { randomBytes } from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { getFormValue, requireAdmin } from "@/actions/helpers";
+import type { ActionResult } from "@/actions/types";
 import { prisma } from "@/lib/prisma";
-import type { ActionResult } from "@/actions/orgs";
-
-function getFormValue(formData: FormData, key: string) {
-  const value = formData.get(key);
-  return typeof value === "string" ? value : undefined;
-}
-
-async function requireAdmin(orgId: string, userId: string) {
-  const membership = await prisma.orgMembership.findUnique({
-    where: { orgId_userId: { orgId, userId } },
-  });
-  return membership?.role === "admin" ? membership : null;
-}
 
 export async function createInvite(
-  _prevState: ActionResult,
+  _prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
   const session = await auth();
@@ -49,36 +38,35 @@ export async function createInvite(
   return { success: true };
 }
 
-export async function deleteInvite(formData: FormData): Promise<ActionResult> {
+export async function deleteInvite(formData: FormData): Promise<void> {
   const session = await auth();
   if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
+    throw new Error("Unauthorized");
   }
 
   const orgId = getFormValue(formData, "orgId");
   const inviteId = getFormValue(formData, "inviteId");
 
   if (!orgId || !inviteId) {
-    return { success: false, error: "Invite not found" };
+    throw new Error("Invite not found");
   }
 
   const membership = await requireAdmin(orgId, session.user.id);
   if (!membership) {
-    return { success: false, error: "You do not have access to delete invites" };
+    throw new Error("You do not have access to delete invites");
   }
 
   const invite = await prisma.invite.findUnique({ where: { id: inviteId } });
   if (!invite || invite.orgId !== orgId) {
-    return { success: false, error: "Invite not found" };
+    throw new Error("Invite not found");
   }
 
   await prisma.invite.delete({ where: { id: inviteId } });
   revalidatePath(`/orgs/${orgId}/invites`);
-  return { success: true };
 }
 
 export async function acceptInvite(
-  _prevState: ActionResult,
+  _prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
   const session = await auth();

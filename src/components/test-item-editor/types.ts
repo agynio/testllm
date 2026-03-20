@@ -22,3 +22,12 @@ export type TestItemDraft =
       content: FunctionCallOutputContent;
       clientId: string;
     };
+
+export type TestItemListItem =
+  | { id?: string; type: "message"; content: MessageContent }
+  | { id?: string; type: "function_call"; content: FunctionCallContent }
+  | {
+      id?: string;
+      type: "function_call_output";
+      content: FunctionCallOutputContent;
+    };

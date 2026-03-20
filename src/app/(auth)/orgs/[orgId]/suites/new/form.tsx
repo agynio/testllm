@@ -4,15 +4,10 @@ import * as React from "react";
 import Link from "next/link";
 import { useActionState } from "react";
 import { createSuite } from "@/actions/suites";
-import type { ActionResult } from "@/actions/orgs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
-type ActionState = ActionResult;
-
-const initialState: ActionState = { success: false, error: "" };
 
 type CreateSuiteFormProps = {
   orgId: string;
@@ -21,7 +16,7 @@ type CreateSuiteFormProps = {
 export function CreateSuiteForm({ orgId }: CreateSuiteFormProps) {
   const [state, formAction, pending] = useActionState(
     createSuite,
-    initialState
+    null
   );
 
   return (
@@ -45,7 +40,7 @@ export function CreateSuiteForm({ orgId }: CreateSuiteFormProps) {
           className="min-h-[110px]"
         />
       </div>
-      {state.success === false && state.error ? (
+      {state?.success === false && state.error ? (
         <p className="text-sm text-destructive">{state.error}</p>
       ) : null}
       <div className="flex justify-end gap-3">

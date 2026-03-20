@@ -10,4 +10,6 @@ export const CreateOrgSchema = z.object({
     }),
 });
 
-export const UpdateOrgSchema = CreateOrgSchema.partial();
+export const UpdateOrgSchema = z.object({
+  name: z.string().min(1, { error: "name is required" }),
+});

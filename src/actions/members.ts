@@ -1,20 +1,16 @@
 "use server";
 
 import { auth } from "@/auth";
+import { getFormValue, requireAdmin } from "@/actions/helpers";
+import type { ActionResult } from "@/actions/types";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import type { ActionResult } from "@/actions/orgs";
 
 type UpdateMemberRoleArgs = {
   orgId: string;
   membershipId: string;
   role: "admin" | "member";
 };
-
-function getFormValue(formData: FormData, key: string) {
-  const value = formData.get(key);
-  return typeof value === "string" ? value : undefined;
-}
 
 export async function updateMemberRole({
   orgId,
@@ -30,10 +26,8 @@ export async function updateMemberRole({
     return { success: false, error: "Invalid role" };
   }
 
-  const membership = await prisma.orgMembership.findUnique({
-    where: { orgId_userId: { orgId, userId: session.user.id } },
-  });
-  if (!membership || membership.role !== "admin") {
+  const membership = await requireAdmin(orgId, session.user.id);
+  if (!membership) {
     return { success: false, error: "You do not have access to update roles" };
   }
 
@@ -64,33 +58,29 @@ export async function updateMemberRole({
   return { success: true };
 }
 
-export async function removeMember(
-  formData: FormData
-): Promise<ActionResult> {
+export async function removeMember(formData: FormData): Promise<void> {
   const session = await auth();
   if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
+    throw new Error("Unauthorized");
   }
 
   const orgId = getFormValue(formData, "orgId");
   const membershipId = getFormValue(formData, "membershipId");
 
   if (!orgId || !membershipId) {
-    return { success: false, error: "Member not found" };
+    throw new Error("Member not found");
   }
 
-  const membership = await prisma.orgMembership.findUnique({
-    where: { orgId_userId: { orgId, userId: session.user.id } },
-  });
-  if (!membership || membership.role !== "admin") {
-    return { success: false, error: "You do not have access to remove members" };
+  const membership = await requireAdmin(orgId, session.user.id);
+  if (!membership) {
+    throw new Error("You do not have access to remove members");
   }
 
   const existing = await prisma.orgMembership.findUnique({
     where: { id: membershipId },
   });
   if (!existing || existing.orgId !== orgId) {
-    return { success: false, error: "Member not found" };
+    throw new Error("Member not found");
   }
 
   if (existing.role === "admin") {
@@ -98,11 +88,10 @@ export async function removeMember(
       where: { orgId, role: "admin" },
     });
     if (adminCount <= 1) {
-      return { success: false, error: "Cannot remove the last admin" };
+      throw new Error("Cannot remove the last admin");
     }
   }
 
   await prisma.orgMembership.delete({ where: { id: membershipId } });
   revalidatePath(`/orgs/${orgId}/members`);
-  return { success: true };
 }

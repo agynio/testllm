@@ -4,14 +4,9 @@ import * as React from "react";
 import Link from "next/link";
 import { useActionState } from "react";
 import { createOrganization } from "@/actions/orgs";
-import type { ActionResult } from "@/actions/orgs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-type ActionState = ActionResult;
-
-const initialState: ActionState = { success: false, error: "" };
 
 function toSlug(value: string) {
   return value
@@ -27,7 +22,7 @@ export function CreateOrgForm() {
   const [slugTouched, setSlugTouched] = React.useState(false);
   const [state, formAction, pending] = useActionState(
     createOrganization,
-    initialState
+    null
   );
 
   React.useEffect(() => {
@@ -64,7 +59,7 @@ export function CreateOrgForm() {
           required
         />
       </div>
-      {state.success === false && state.error ? (
+      {state?.success === false && state.error ? (
         <p className="text-sm text-destructive">{state.error}</p>
       ) : null}
       <div className="flex justify-end gap-3">

@@ -4,12 +4,10 @@ import * as React from "react";
 import { toast } from "sonner";
 import { useActionState } from "react";
 import { createInvite } from "@/actions/invites";
-import type { ActionResult } from "@/actions/orgs";
+import type { ActionResult } from "@/actions/types";
 import { Button } from "@/components/ui/button";
 
-type ActionState = ActionResult;
-
-const initialState: ActionState = { success: false, error: "" };
+type ActionState = ActionResult | null;
 
 type InviteActionsProps = {
   orgId: string;
@@ -18,18 +16,21 @@ type InviteActionsProps = {
 export function InviteActions({ orgId }: InviteActionsProps) {
   const [state, formAction, pending] = useActionState(
     createInvite,
-    initialState
+    null
   );
-  const previous = React.useRef<ActionState>(initialState);
+  const previous = React.useRef<ActionState>(null);
 
   React.useEffect(() => {
+    if (!state) {
+      return;
+    }
     if (state.success && state !== previous.current) {
       toast.success("Invite created");
     }
     const error = state.success ? undefined : state.error;
-    const previousError = previous.current.success
+    const previousError = previous.current?.success
       ? undefined
-      : previous.current.error;
+      : previous.current?.error;
     if (error && error !== previousError) {
       toast.error(error);
     }

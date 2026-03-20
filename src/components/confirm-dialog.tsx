@@ -19,7 +19,7 @@ type ConfirmDialogProps = {
   confirmLabel?: string;
   variant?: "destructive" | "default";
   trigger: React.ReactNode;
-  action: (formData: FormData) => Promise<{ success: boolean; error?: string }>;
+  action: (formData: FormData) => void | Promise<void>;
   children?: React.ReactNode;
 };
 
@@ -32,10 +32,6 @@ export function ConfirmDialog({
   action,
   children,
 }: ConfirmDialogProps) {
-  const handleAction = async (formData: FormData) => {
-    await action(formData);
-  };
-
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
@@ -46,7 +42,7 @@ export function ConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <form action={handleAction}>
+          <form action={action}>
             {children}
             <AlertDialogAction type="submit" variant={variant}>
               {confirmLabel}

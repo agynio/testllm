@@ -18,12 +18,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ItemContentFields } from "@/components/test-item-editor/item-content-fields";
-import type {
-  FunctionCallContent,
-  FunctionCallOutputContent,
-  MessageContent,
-  TestItemDraft,
-} from "@/components/test-item-editor/types";
+import type { TestItemDraft } from "@/components/test-item-editor/types";
 
 type TestItemRowProps = {
   item: TestItemDraft;
@@ -87,27 +82,6 @@ export function TestItemRow({
     if (value === item.type) return;
     const nextItem = getDefaultContent(value);
     onChange({ ...nextItem, clientId: item.clientId });
-  };
-
-  const handleContentChange = (content: TestItemDraft["content"]) => {
-    if (item.type === "message") {
-      onChange({
-        ...item,
-        content: content as MessageContent,
-      });
-      return;
-    }
-    if (item.type === "function_call") {
-      onChange({
-        ...item,
-        content: content as FunctionCallContent,
-      });
-      return;
-    }
-    onChange({
-      ...item,
-      content: content as FunctionCallOutputContent,
-    });
   };
 
   const removeButton = (
@@ -191,7 +165,7 @@ export function TestItemRow({
           )}
         </div>
       </div>
-      <ItemContentFields item={item} onChange={handleContentChange} />
+      <ItemContentFields item={item} onChange={onChange} />
     </div>
   );
 }

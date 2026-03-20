@@ -15,14 +15,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { ActionResult } from "@/actions/orgs";
+import type { ActionResult } from "@/actions/types";
 
 type ConfirmDeleteDialogProps = {
   orgId: string;
   orgName: string;
   orgSlug: string;
   action: (
-    prevState: ActionResult,
+    prevState: ActionResult | null,
     formData: FormData
   ) => Promise<ActionResult> | ActionResult;
 };
@@ -34,10 +34,7 @@ export function ConfirmDeleteDialog({
   action,
 }: ConfirmDeleteDialogProps) {
   const [confirmation, setConfirmation] = React.useState("");
-  const [state, formAction] = React.useActionState(action, {
-    success: false,
-    error: "",
-  });
+  const [state, formAction] = React.useActionState(action, null);
 
   const isMatch = confirmation === orgSlug;
 
@@ -63,7 +60,7 @@ export function ConfirmDeleteDialog({
             value={confirmation}
             onChange={(event) => setConfirmation(event.target.value)}
           />
-          {state.success === false && state.error ? (
+          {state?.success === false && state.error ? (
             <p className="text-sm text-destructive">{state.error}</p>
           ) : null}
         </div>

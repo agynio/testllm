@@ -2,29 +2,11 @@
 
 import * as React from "react";
 import { ChevronDown } from "lucide-react";
+import type { TestItemListItem } from "@/components/test-item-editor/types";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-export type MessageContent = {
-  role: "user" | "system" | "developer" | "assistant";
-  content: string;
-};
-
-export type FunctionCallContent = {
-  call_id: string;
-  name: string;
-  arguments: string;
-};
-
-export type FunctionCallOutputContent = {
-  call_id: string;
-  output: string;
-};
-
-export type TestItemListItem =
-  | { id?: string; type: "message"; content: MessageContent }
-  | { id?: string; type: "function_call"; content: FunctionCallContent }
-  | { id?: string; type: "function_call_output"; content: FunctionCallOutputContent };
+export type { TestItemListItem } from "@/components/test-item-editor/types";
 
 type TestItemListProps = {
   items: TestItemListItem[];

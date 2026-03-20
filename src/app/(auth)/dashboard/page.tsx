@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
@@ -16,12 +15,13 @@ import { prisma } from "@/lib/prisma";
 
 export default async function DashboardPage() {
   const session = await auth();
-  if (!session?.user?.id) {
-    redirect("/");
+  const userId = session?.user?.id;
+  if (!userId) {
+    throw new Error("Expected authenticated session");
   }
 
   const memberships = await prisma.orgMembership.findMany({
-    where: { userId: session.user.id },
+    where: { userId },
     include: { org: true },
     orderBy: { createdAt: "desc" },
   });

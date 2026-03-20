@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AcceptInviteForm } from "@/app/(auth)/invite/[token]/accept-form";
 import { Button } from "@/components/ui/button";
@@ -19,9 +18,9 @@ export default async function InvitePage({
 }) {
   const { token } = await params;
   const session = await auth();
-
-  if (!session?.user?.id) {
-    redirect("/");
+  const userId = session?.user?.id;
+  if (!userId) {
+    throw new Error("Expected authenticated session");
   }
 
   const invite = await prisma.invite.findUnique({
@@ -35,7 +34,7 @@ export default async function InvitePage({
         where: {
           orgId_userId: {
             orgId: invite.orgId,
-            userId: session.user.id,
+            userId,
           },
         },
       })

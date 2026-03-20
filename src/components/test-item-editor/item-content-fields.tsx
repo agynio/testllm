@@ -18,7 +18,7 @@ import type {
 
 type ItemContentFieldsProps = {
   item: TestItemDraft;
-  onChange: (content: TestItemDraft["content"]) => void;
+  onChange: (item: TestItemDraft) => void;
 };
 
 export function ItemContentFields({ item, onChange }: ItemContentFieldsProps) {
@@ -32,8 +32,11 @@ export function ItemContentFields({ item, onChange }: ItemContentFieldsProps) {
               value={item.content.role}
               onValueChange={(value) =>
                 onChange({
-                  ...item.content,
-                  role: value as MessageContent["role"],
+                  ...item,
+                  content: {
+                    ...item.content,
+                    role: value as MessageContent["role"],
+                  },
                 })
               }
             >
@@ -54,7 +57,10 @@ export function ItemContentFields({ item, onChange }: ItemContentFieldsProps) {
           <Textarea
             value={item.content.content}
             onChange={(event) =>
-              onChange({ ...item.content, content: event.target.value })
+              onChange({
+                ...item,
+                content: { ...item.content, content: event.target.value },
+              })
             }
             placeholder="Message content"
             className="min-h-[90px]"
@@ -73,7 +79,10 @@ export function ItemContentFields({ item, onChange }: ItemContentFieldsProps) {
             <Input
               value={item.content.call_id}
               onChange={(event) =>
-                onChange({ ...item.content, call_id: event.target.value })
+                onChange({
+                  ...item,
+                  content: { ...item.content, call_id: event.target.value },
+                })
               }
               placeholder="call_123"
               className="font-mono"
@@ -84,7 +93,10 @@ export function ItemContentFields({ item, onChange }: ItemContentFieldsProps) {
             <Input
               value={item.content.name}
               onChange={(event) =>
-                onChange({ ...item.content, name: event.target.value })
+                onChange({
+                  ...item,
+                  content: { ...item.content, name: event.target.value },
+                })
               }
               placeholder="get_weather"
               className="font-mono"
@@ -96,7 +108,10 @@ export function ItemContentFields({ item, onChange }: ItemContentFieldsProps) {
           <Textarea
             value={item.content.arguments}
             onChange={(event) =>
-              onChange({ ...item.content, arguments: event.target.value })
+              onChange({
+                ...item,
+                content: { ...item.content, arguments: event.target.value },
+              })
             }
             placeholder='{"key": "value"}'
             className="min-h-[100px] font-mono"
@@ -114,7 +129,10 @@ export function ItemContentFields({ item, onChange }: ItemContentFieldsProps) {
           <Input
             value={item.content.call_id}
             onChange={(event) =>
-              onChange({ ...item.content, call_id: event.target.value })
+              onChange({
+                ...item,
+                content: { ...item.content, call_id: event.target.value },
+              })
             }
             placeholder="call_123"
             className="font-mono"
@@ -126,7 +144,10 @@ export function ItemContentFields({ item, onChange }: ItemContentFieldsProps) {
         <Textarea
           value={item.content.output}
           onChange={(event) =>
-            onChange({ ...item.content, output: event.target.value })
+            onChange({
+              ...item,
+              content: { ...item.content, output: event.target.value },
+            })
           }
           placeholder='{"result": "value"}'
           className="min-h-[100px] font-mono"

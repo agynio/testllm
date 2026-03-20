@@ -4,27 +4,14 @@ import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { getFormValue, requireMembership } from "@/actions/helpers";
+import type { ActionResult } from "@/actions/types";
 import { prisma } from "@/lib/prisma";
 import { findSuiteOrNull } from "@/lib/test-helpers";
-import {
-  CreateSuiteSchema,
-  UpdateSuiteSchema,
-} from "@/lib/schemas/suites";
-import type { ActionResult } from "@/actions/orgs";
-
-function getFormValue(formData: FormData, key: string) {
-  const value = formData.get(key);
-  return typeof value === "string" ? value : undefined;
-}
-
-async function requireMembership(orgId: string, userId: string) {
-  return prisma.orgMembership.findUnique({
-    where: { orgId_userId: { orgId, userId } },
-  });
-}
+import { CreateSuiteSchema, UpdateSuiteSchema } from "@/lib/schemas/suites";
 
 export async function createSuite(
-  _prevState: ActionResult,
+  _prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
   const session = await auth();
@@ -49,7 +36,7 @@ export async function createSuite(
 
   if (!parsed.success) {
     const [issue] = parsed.error.issues;
-    return { success: false, error: issue?.message ?? "Invalid input" };
+    return { success: false, error: issue.message };
   }
 
   try {
@@ -78,7 +65,7 @@ export async function createSuite(
 }
 
 export async function updateSuite(
-  _prevState: ActionResult,
+  _prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
   const session = await auth();
@@ -110,7 +97,7 @@ export async function updateSuite(
 
   if (!parsed.success) {
     const [issue] = parsed.error.issues;
-    return { success: false, error: issue?.message ?? "Invalid input" };
+    return { success: false, error: issue.message };
   }
 
   if (parsed.data.name && parsed.data.name !== suite.name) {
@@ -137,27 +124,27 @@ export async function updateSuite(
   redirect(`/orgs/${orgId}/suites/${suiteId}`);
 }
 
-export async function deleteSuite(formData: FormData): Promise<ActionResult> {
+export async function deleteSuite(formData: FormData): Promise<void> {
   const session = await auth();
   if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
+    throw new Error("Unauthorized");
   }
 
   const orgId = getFormValue(formData, "orgId");
   const suiteId = getFormValue(formData, "suiteId");
 
   if (!orgId || !suiteId) {
-    return { success: false, error: "Test suite not found" };
+    throw new Error("Test suite not found");
   }
 
   const membership = await requireMembership(orgId, session.user.id);
   if (!membership) {
-    return { success: false, error: "Organization not found" };
+    throw new Error("Organization not found");
   }
 
   const suite = await findSuiteOrNull(orgId, suiteId);
   if (!suite) {
-    return { success: false, error: "Test suite not found" };
+    throw new Error("Test suite not found");
   }
 
   await prisma.testSuite.delete({ where: { id: suiteId } });

@@ -4,21 +4,11 @@ import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { getFormValue, requireMembership } from "@/actions/helpers";
+import type { ActionResult } from "@/actions/types";
 import { prisma } from "@/lib/prisma";
 import { findSuiteOrNull, findTestOrNull } from "@/lib/test-helpers";
 import { CreateTestSchema, UpdateTestSchema } from "@/lib/schemas/test-items";
-import type { ActionResult } from "@/actions/orgs";
-
-function getFormValue(formData: FormData, key: string) {
-  const value = formData.get(key);
-  return typeof value === "string" ? value : undefined;
-}
-
-async function requireMembership(orgId: string, userId: string) {
-  return prisma.orgMembership.findUnique({
-    where: { orgId_userId: { orgId, userId } },
-  });
-}
 
 function parseItems(raw: string | undefined) {
   if (!raw) {
@@ -32,7 +22,7 @@ function parseItems(raw: string | undefined) {
 }
 
 export async function createTest(
-  _prevState: ActionResult,
+  _prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
   const session = await auth();
@@ -70,7 +60,7 @@ export async function createTest(
 
   if (!parsed.success) {
     const [issue] = parsed.error.issues;
-    return { success: false, error: issue?.message ?? "Invalid input" };
+    return { success: false, error: issue.message };
   }
 
   try {
@@ -106,7 +96,7 @@ export async function createTest(
 }
 
 export async function updateTest(
-  _prevState: ActionResult,
+  _prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
   const session = await auth();
@@ -132,7 +122,10 @@ export async function updateTest(
     return { success: false, error: "Test not found" };
   }
 
-  const itemsResult = parseItems(getFormValue(formData, "items"));
+  const rawItems = getFormValue(formData, "items");
+  const itemsResult = rawItems
+    ? parseItems(rawItems)
+    : ({ ok: true, value: undefined } as const);
   if (!itemsResult.ok) {
     return { success: false, error: itemsResult.error };
   }
@@ -145,7 +138,7 @@ export async function updateTest(
 
   if (!parsed.success) {
     const [issue] = parsed.error.issues;
-    return { success: false, error: issue?.message ?? "Invalid input" };
+    return { success: false, error: issue.message };
   }
 
   if (parsed.data.name && parsed.data.name !== test.name) {
@@ -161,20 +154,26 @@ export async function updateTest(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.testItem.deleteMany({ where: { testId } });
+    if (parsed.data.items) {
+      await tx.testItem.deleteMany({ where: { testId } });
+    }
 
     await tx.test.update({
       where: { id: testId },
       data: {
         name: parsed.data.name,
         description: parsed.data.description,
-        items: {
-          create: parsed.data.items?.map((item, index) => ({
-            position: index,
-            type: item.type,
-            content: item.content,
-          })),
-        },
+        ...(parsed.data.items
+          ? {
+              items: {
+                create: parsed.data.items.map((item, index) => ({
+                  position: index,
+                  type: item.type,
+                  content: item.content,
+                })),
+              },
+            }
+          : {}),
       },
     });
   });
@@ -183,10 +182,10 @@ export async function updateTest(
   redirect(`/orgs/${orgId}/suites/${suiteId}/tests/${testId}`);
 }
 
-export async function deleteTest(formData: FormData): Promise<ActionResult> {
+export async function deleteTest(formData: FormData): Promise<void> {
   const session = await auth();
   if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
+    throw new Error("Unauthorized");
   }
 
   const orgId = getFormValue(formData, "orgId");
@@ -194,17 +193,17 @@ export async function deleteTest(formData: FormData): Promise<ActionResult> {
   const testId = getFormValue(formData, "testId");
 
   if (!orgId || !suiteId || !testId) {
-    return { success: false, error: "Test not found" };
+    throw new Error("Test not found");
   }
 
   const membership = await requireMembership(orgId, session.user.id);
   if (!membership) {
-    return { success: false, error: "Organization not found" };
+    throw new Error("Organization not found");
   }
 
   const test = await findTestOrNull(orgId, suiteId, testId);
   if (!test) {
-    return { success: false, error: "Test not found" };
+    throw new Error("Test not found");
   }
 
   await prisma.test.delete({ where: { id: testId } });
