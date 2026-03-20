@@ -1,20 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-helpers";
 import { parseRequestBody } from "@/lib/validation";
 import { conflictError } from "@/lib/errors";
-
-const CreateOrgSchema = z.object({
-  name: z.string().min(1, { error: "name is required" }),
-  slug: z
-    .string()
-    .min(1, { error: "slug is required" })
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
-      error: "slug must be lowercase alphanumeric with hyphens",
-    }),
-});
+import { CreateOrgSchema } from "@/lib/schemas/orgs";
 
 export async function POST(request: NextRequest) {
   const authResult = await getAuthUser();
