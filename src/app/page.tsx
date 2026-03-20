@@ -1,6 +1,13 @@
 import Link from "next/link";
+import { auth, signIn } from "@/auth";
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth();
+  const signInAction = async () => {
+    "use server";
+    await signIn("oidc");
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center gap-10 px-6 py-24 font-sans sm:gap-12">
@@ -38,12 +45,23 @@ export default function Home() {
             behavior every time.
           </p>
           <div className="pt-2">
-            <Link
-              className="inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-              href="/api/auth/signin"
-            >
-              Sign In
-            </Link>
+            {session ? (
+              <Link
+                className="inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                href="/"
+              >
+                Get Started
+              </Link>
+            ) : (
+              <form action={signInAction}>
+                <button
+                  className="inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                  type="submit"
+                >
+                  Sign In
+                </button>
+              </form>
+            )}
           </div>
         </section>
       </main>
