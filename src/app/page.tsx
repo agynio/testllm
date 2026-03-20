@@ -3,6 +3,8 @@ import { auth, signIn } from "@/auth";
 
 export default async function Home() {
   const session = await auth();
+  const ctaClassName =
+    "inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white";
   const signInAction = async () => {
     "use server";
     await signIn("oidc");
@@ -47,15 +49,15 @@ export default async function Home() {
           <div className="pt-2">
             {session ? (
               <Link
-                className="inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-                href="/"
+                className={ctaClassName}
+                href="/dashboard"
               >
                 Get Started
               </Link>
             ) : (
               <form action={signInAction}>
                 <button
-                  className="inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                  className={ctaClassName}
                   type="submit"
                 >
                   Sign In
