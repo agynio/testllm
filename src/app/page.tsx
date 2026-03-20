@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -12,34 +14,36 @@ export default function Home() {
         </header>
         <section className="space-y-6 text-base text-slate-600 dark:text-slate-300">
           <p>
-            Point agents at TestLLM instead of a real LLM and receive scripted,
-            deterministic responses that make end-to-end behavior fully
-            assertable.
+            <span className="font-semibold text-slate-900 dark:text-slate-100">
+              What it does.
+            </span>{" "}
+            TestLLM lets you create scripted conversation sequences so your AI
+            agents receive deterministic, repeatable responses during testing.
           </p>
-          <div className="space-y-3">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-              API surfaces
-            </p>
-            <ul className="space-y-2">
-              <li className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  Management API
-                </span>
-                <code className="rounded bg-slate-100 px-2 py-0.5 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                  /api/
-                </code>
-                <span>for configuring orgs, suites, and tests.</span>
-              </li>
-              <li className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  Responses API
-                </span>
-                <code className="rounded bg-slate-100 px-2 py-0.5 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                  /v1/...
-                </code>
-                <span>for deterministic, OpenAI-compatible responses.</span>
-              </li>
-            </ul>
+          <p>
+            <span className="font-semibold text-slate-900 dark:text-slate-100">
+              Why it matters.
+            </span>{" "}
+            Real LLMs are non-deterministic, so the same prompt can produce
+            different outputs and make E2E tests unreliable. TestLLM fixes this
+            by acting as a drop-in LLM replacement that returns exact, scripted
+            responses.
+          </p>
+          <p>
+            <span className="font-semibold text-slate-900 dark:text-slate-100">
+              How it works.
+            </span>{" "}
+            Define a test conversation with inputs and expected outputs, point
+            your agent at TestLLM instead of a real LLM, and get the exact same
+            behavior every time.
+          </p>
+          <div className="pt-2">
+            <Link
+              className="inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+              href="/api/auth/signin"
+            >
+              Sign In
+            </Link>
           </div>
         </section>
       </main>
