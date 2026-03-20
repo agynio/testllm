@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAuthWithMembership } from "@/lib/auth-helpers";
 import { parseRequestBody } from "@/lib/validation";
 import { conflictError } from "@/lib/errors";
-
-const CreateSuiteSchema = z.object({
-  name: z.string().min(1, { error: "name is required" }),
-  description: z.string().optional(),
-});
+import { CreateSuiteSchema } from "@/lib/schemas/suites";
 
 export async function POST(
   request: NextRequest,

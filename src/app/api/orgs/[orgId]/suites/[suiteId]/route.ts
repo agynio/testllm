@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAuthWithMembership } from "@/lib/auth-helpers";
 import { parseRequestBody } from "@/lib/validation";
 import { conflictError, notFoundError } from "@/lib/errors";
-
-const UpdateSuiteSchema = z.object({
-  name: z.string().min(1).optional(),
-  description: z.string().optional(),
-});
+import { UpdateSuiteSchema } from "@/lib/schemas/suites";
 
 export async function GET(
   request: NextRequest,
