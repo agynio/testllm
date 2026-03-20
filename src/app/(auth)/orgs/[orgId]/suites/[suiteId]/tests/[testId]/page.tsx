@@ -36,6 +36,7 @@ export default async function TestDetailPage({
   });
 
   const listItems = mapPrismaItemsToListItems(items);
+  const endpoint = `https://testllm.dev/v1/org/${test.testSuite.org.slug}/suite/${test.testSuite.name}/responses`;
 
   return (
     <div className="space-y-6">
@@ -94,6 +95,21 @@ export default async function TestDetailPage({
             {test.name}
           </code>
           <CopyButton value={test.name} showLabel />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Endpoint</CardTitle>
+          <CardDescription>
+            Use this endpoint when configuring your agent.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3">
+          <code className="rounded bg-muted px-2 py-1 text-sm font-mono">
+            {endpoint}
+          </code>
+          <CopyButton value={endpoint} showLabel />
         </CardContent>
       </Card>
     </div>
