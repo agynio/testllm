@@ -42,16 +42,9 @@ async function parseRequestBody(
     };
   }
 
-  const parsed = RequestSchema.safeParse(body);
-  if (!parsed.success) {
-    const issue = parsed.error.issues[0];
-    const path = issue.path.join(".");
-    if (
-      issue.code === "invalid_type" &&
-      "received" in issue &&
-      issue.received === "undefined" &&
-      path === "model"
-    ) {
+  if (body && typeof body === "object" && !Array.isArray(body)) {
+    const record = body as Record<string, unknown>;
+    if (!Object.prototype.hasOwnProperty.call(record, "model")) {
       return {
         ok: false,
         error: openaiError(
@@ -62,12 +55,41 @@ async function parseRequestBody(
         ),
       };
     }
-    if (
+    if (!Object.prototype.hasOwnProperty.call(record, "input")) {
+      return {
+        ok: false,
+        error: openaiError(
+          400,
+          "Missing required field: input",
+          "invalid_request_error",
+          "missing_input"
+        ),
+      };
+    }
+  }
+
+  const parsed = RequestSchema.safeParse(body);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const path = issue.path.join(".");
+    const receivedValue = "received" in issue ? issue.received : undefined;
+    const isMissingField =
       issue.code === "invalid_type" &&
-      "received" in issue &&
-      issue.received === "undefined" &&
-      path === "input"
-    ) {
+      path.length > 0 &&
+      (receivedValue === "undefined" || receivedValue === undefined);
+
+    if (isMissingField && path === "model") {
+      return {
+        ok: false,
+        error: openaiError(
+          400,
+          "Missing required field: model",
+          "invalid_request_error",
+          "missing_model"
+        ),
+      };
+    }
+    if (isMissingField && path === "input") {
       return {
         ok: false,
         error: openaiError(
