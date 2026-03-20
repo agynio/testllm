@@ -1,37 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { User } from "@prisma/client";
 import { authenticatedFetch, createTestUser } from "../helpers/auth";
 import { jsonRequest, managementUrl } from "../helpers/api";
+import {
+  createOrg,
+  createSuite,
+  defaultSuitePayload,
+} from "../helpers/management";
 import { prisma } from "../helpers/prisma";
-
-const defaultOrg = { name: "Acme", slug: "acme" };
-const defaultSuite = { name: "suite-alpha", description: "Alpha" };
-
-async function createOrg(user: User, payload = defaultOrg) {
-  const response = await authenticatedFetch(
-    managementUrl("/orgs"),
-    {
-      method: "POST",
-      ...jsonRequest(payload),
-    },
-    user
-  );
-  const body = await response.json();
-  return { response, body };
-}
-
-async function createSuite(user: User, orgId: string, payload = defaultSuite) {
-  const response = await authenticatedFetch(
-    managementUrl(`/orgs/${orgId}/suites`),
-    {
-      method: "POST",
-      ...jsonRequest(payload),
-    },
-    user
-  );
-  const body = await response.json();
-  return { response, body };
-}
 
 describe("management api test suites", () => {
   it("creates a test suite for admins", async () => {
@@ -42,8 +17,8 @@ describe("management api test suites", () => {
     expect(response.status).toBe(201);
     expect(body).toMatchObject({
       org_id: org.id,
-      name: defaultSuite.name,
-      description: defaultSuite.description,
+      name: defaultSuitePayload.name,
+      description: defaultSuitePayload.description,
     });
   });
 
@@ -90,7 +65,7 @@ describe("management api test suites", () => {
       managementUrl(`/orgs/${org.id}/suites`),
       {
         method: "POST",
-        ...jsonRequest(defaultSuite),
+        ...jsonRequest(defaultSuitePayload),
       },
       admin
     );
@@ -163,10 +138,11 @@ describe("management api test suites", () => {
 
   it("returns 404 when suite does not belong to org", async () => {
     const admin = await createTestUser();
-    const { body: org } = await createOrg(admin, { name: "Org", slug: "org" });
+    const { body: org } = await createOrg(admin, {
+      payload: { name: "Org", slug: "org" },
+    });
     const { body: otherOrg } = await createOrg(admin, {
-      name: "Other",
-      slug: "other",
+      payload: { name: "Other", slug: "other" },
     });
     const { body: suite } = await createSuite(admin, otherOrg.id, {
       name: "suite-elsewhere",
@@ -264,10 +240,11 @@ describe("management api test suites", () => {
 
   it("returns 404 when deleting a suite outside the org", async () => {
     const admin = await createTestUser();
-    const { body: org } = await createOrg(admin, { name: "Org", slug: "org" });
+    const { body: org } = await createOrg(admin, {
+      payload: { name: "Org", slug: "org" },
+    });
     const { body: otherOrg } = await createOrg(admin, {
-      name: "Other",
-      slug: "other",
+      payload: { name: "Other", slug: "other" },
     });
     const { body: suite } = await createSuite(admin, otherOrg.id, {
       name: "suite-elsewhere",

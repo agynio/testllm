@@ -7,35 +7,7 @@ import {
   simpleMessageSequence,
   weatherSequence,
 } from "../helpers/fixtures";
-
-const defaultOrg = { name: "Acme", slug: "acme" };
-const defaultSuite = { name: "suite-alpha" };
-
-async function createOrg(user: User, payload = defaultOrg) {
-  const response = await authenticatedFetch(
-    managementUrl("/orgs"),
-    {
-      method: "POST",
-      ...jsonRequest(payload),
-    },
-    user
-  );
-  const body = await response.json();
-  return body;
-}
-
-async function createSuite(user: User, orgId: string, payload = defaultSuite) {
-  const response = await authenticatedFetch(
-    managementUrl(`/orgs/${orgId}/suites`),
-    {
-      method: "POST",
-      ...jsonRequest(payload),
-    },
-    user
-  );
-  const body = await response.json();
-  return body;
-}
+import { createOrg, createSuite } from "../helpers/management";
 
 async function createTest(
   user: User,
@@ -58,8 +30,8 @@ async function createTest(
 describe("management api tests", () => {
   it("creates tests with ordered items", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin);
-    const suite = await createSuite(admin, org.id);
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id);
 
     const { response, body } = await createTest(admin, org.id, suite.id, {
       name: "weather-test",
@@ -76,8 +48,8 @@ describe("management api tests", () => {
 
   it("rejects duplicate test names", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin);
-    const suite = await createSuite(admin, org.id);
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id);
 
     await createTest(admin, org.id, suite.id, {
       name: "duplicate",
@@ -101,8 +73,8 @@ describe("management api tests", () => {
   it("returns 404 when creating tests without membership", async () => {
     const admin = await createTestUser();
     const outsider = await createTestUser();
-    const org = await createOrg(admin);
-    const suite = await createSuite(admin, org.id);
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id);
 
     const response = await authenticatedFetch(
       managementUrl(`/orgs/${org.id}/suites/${suite.id}/tests`),
@@ -120,8 +92,8 @@ describe("management api tests", () => {
 
   it("lists tests without items", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin);
-    const suite = await createSuite(admin, org.id);
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id);
 
     await createTest(admin, org.id, suite.id, {
       name: "listed",
@@ -142,8 +114,8 @@ describe("management api tests", () => {
 
   it("returns empty lists when no tests exist", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin);
-    const suite = await createSuite(admin, org.id);
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id);
 
     const response = await authenticatedFetch(
       managementUrl(`/orgs/${org.id}/suites/${suite.id}/tests`),
@@ -158,8 +130,8 @@ describe("management api tests", () => {
 
   it("fetches tests with items", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin);
-    const suite = await createSuite(admin, org.id);
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id);
     const { body: test } = await createTest(admin, org.id, suite.id, {
       name: "full",
       items: weatherSequence,
@@ -178,8 +150,8 @@ describe("management api tests", () => {
 
   it("updates test metadata without replacing items", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin);
-    const suite = await createSuite(admin, org.id);
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id);
     const { body: test } = await createTest(admin, org.id, suite.id, {
       name: "metadata",
       items: simpleMessageSequence,
@@ -202,8 +174,8 @@ describe("management api tests", () => {
 
   it("replaces items when updating tests", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin);
-    const suite = await createSuite(admin, org.id);
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id);
     const { body: test } = await createTest(admin, org.id, suite.id, {
       name: "replace-items",
       items: simpleMessageSequence,
@@ -226,8 +198,8 @@ describe("management api tests", () => {
 
   it("rejects test renames that conflict", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin);
-    const suite = await createSuite(admin, org.id);
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id);
     const { body: test } = await createTest(admin, org.id, suite.id, {
       name: "test-a",
       items: simpleMessageSequence,
@@ -253,8 +225,8 @@ describe("management api tests", () => {
 
   it("validates test update payloads", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin);
-    const suite = await createSuite(admin, org.id);
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id);
     const { body: test } = await createTest(admin, org.id, suite.id, {
       name: "invalid-items",
       items: simpleMessageSequence,
@@ -276,9 +248,15 @@ describe("management api tests", () => {
 
   it("returns 404 when updating a test outside the org", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin, { name: "Org", slug: "org" });
-    const otherOrg = await createOrg(admin, { name: "Other", slug: "other" });
-    const suite = await createSuite(admin, otherOrg.id, { name: "suite-else" });
+    const { body: org } = await createOrg(admin, {
+      payload: { name: "Org", slug: "org" },
+    });
+    const { body: otherOrg } = await createOrg(admin, {
+      payload: { name: "Other", slug: "other" },
+    });
+    const { body: suite } = await createSuite(admin, otherOrg.id, {
+      name: "suite-else",
+    });
     const { body: test } = await createTest(admin, otherOrg.id, suite.id, {
       name: "foreign",
       items: simpleMessageSequence,
@@ -300,8 +278,8 @@ describe("management api tests", () => {
 
   it("deletes tests", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin);
-    const suite = await createSuite(admin, org.id);
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id);
     const { body: test } = await createTest(admin, org.id, suite.id, {
       name: "delete-me",
       items: simpleMessageSequence,
@@ -320,9 +298,15 @@ describe("management api tests", () => {
 
   it("returns 404 when deleting a test outside the org", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin, { name: "Org", slug: "org" });
-    const otherOrg = await createOrg(admin, { name: "Other", slug: "other" });
-    const suite = await createSuite(admin, otherOrg.id, { name: "suite-else" });
+    const { body: org } = await createOrg(admin, {
+      payload: { name: "Org", slug: "org" },
+    });
+    const { body: otherOrg } = await createOrg(admin, {
+      payload: { name: "Other", slug: "other" },
+    });
+    const { body: suite } = await createSuite(admin, otherOrg.id, {
+      name: "suite-else",
+    });
     const { body: test } = await createTest(admin, otherOrg.id, suite.id, {
       name: "foreign",
       items: simpleMessageSequence,
@@ -341,9 +325,15 @@ describe("management api tests", () => {
 
   it("returns 404 when fetching a test outside the org", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin, { name: "Org", slug: "org" });
-    const otherOrg = await createOrg(admin, { name: "Other", slug: "other" });
-    const suite = await createSuite(admin, otherOrg.id, { name: "suite-else" });
+    const { body: org } = await createOrg(admin, {
+      payload: { name: "Org", slug: "org" },
+    });
+    const { body: otherOrg } = await createOrg(admin, {
+      payload: { name: "Other", slug: "other" },
+    });
+    const { body: suite } = await createSuite(admin, otherOrg.id, {
+      name: "suite-else",
+    });
     const { body: test } = await createTest(admin, otherOrg.id, suite.id, {
       name: "foreign",
       items: simpleMessageSequence,

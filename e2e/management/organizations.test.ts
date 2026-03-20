@@ -1,24 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { User } from "@prisma/client";
 import { authenticatedFetch, createTestUser } from "../helpers/auth";
 import { jsonRequest, managementUrl } from "../helpers/api";
+import { createOrg, defaultOrgPayload } from "../helpers/management";
 import { prisma } from "../helpers/prisma";
-
-const defaultPayload = { name: "Acme", slug: "acme" };
-
-async function createOrg(user: User, payload = defaultPayload) {
-  const response = await authenticatedFetch(
-    managementUrl("/orgs"),
-    {
-      method: "POST",
-      ...jsonRequest(payload),
-    },
-    user
-  );
-
-  const body = await response.json();
-  return { response, body };
-}
 
 describe("management api organizations", () => {
   it("creates an organization and assigns admin membership", async () => {
@@ -40,7 +24,7 @@ describe("management api organizations", () => {
       managementUrl("/orgs"),
       {
         method: "POST",
-        ...jsonRequest(defaultPayload),
+        ...jsonRequest(defaultOrgPayload),
       },
       user
     );
@@ -77,7 +61,9 @@ describe("management api organizations", () => {
     const otherUser = await createTestUser();
 
     const { body: org } = await createOrg(user);
-    await createOrg(otherUser, { name: "Other", slug: "other" });
+    await createOrg(otherUser, {
+      payload: { name: "Other", slug: "other" },
+    });
 
     const response = await authenticatedFetch(managementUrl("/orgs"), {}, user);
 
@@ -103,8 +89,10 @@ describe("management api organizations", () => {
     const admin = await createTestUser();
     const member = await createTestUser();
     const { body: org } = await createOrg(admin, {
-      name: "Team Alpha",
-      slug: "team-alpha",
+      payload: {
+        name: "Team Alpha",
+        slug: "team-alpha",
+      },
     });
 
     await prisma.orgMembership.create({

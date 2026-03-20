@@ -1,9 +1,5 @@
-import path from "path";
-import { config as loadEnv } from "dotenv";
 import { beforeEach, afterAll } from "vitest";
 import { prisma } from "./helpers/prisma";
-
-loadEnv({ path: path.resolve(__dirname, "..", ".env.test") });
 
 beforeEach(async () => {
   await prisma.testItem.deleteMany();

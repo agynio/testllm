@@ -1,22 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { randomUUID } from "crypto";
 import type { User } from "@prisma/client";
 import { authenticatedFetch, createTestUser } from "../helpers/auth";
-import { jsonRequest, managementUrl } from "../helpers/api";
+import { managementUrl } from "../helpers/api";
+import { createOrg } from "../helpers/management";
 import { prisma } from "../helpers/prisma";
-
-async function createOrg(user: User) {
-  const slug = `acme-${randomUUID()}`;
-  const response = await authenticatedFetch(
-    managementUrl("/orgs"),
-    {
-      method: "POST",
-      ...jsonRequest({ name: "Acme", slug }),
-    },
-    user
-  );
-  return response.json();
-}
 
 async function createInvite(user: User, orgId: string) {
   const response = await authenticatedFetch(
@@ -31,7 +18,7 @@ async function createInvite(user: User, orgId: string) {
 describe("management api invites", () => {
   it("creates invites for admins", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
 
     const { response, body } = await createInvite(admin, org.id);
     expect(response.status).toBe(201);
@@ -42,7 +29,7 @@ describe("management api invites", () => {
   it("rejects invite creation from non-admins", async () => {
     const admin = await createTestUser();
     const member = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
 
     await prisma.orgMembership.create({
       data: { orgId: org.id, userId: member.id, role: "member" },
@@ -61,7 +48,7 @@ describe("management api invites", () => {
 
   it("lists invites for admins", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
     await createInvite(admin, org.id);
 
     const response = await authenticatedFetch(
@@ -79,7 +66,7 @@ describe("management api invites", () => {
   it("rejects invite listing from non-admins", async () => {
     const admin = await createTestUser();
     const member = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
 
     await prisma.orgMembership.create({
       data: { orgId: org.id, userId: member.id, role: "member" },
@@ -98,7 +85,7 @@ describe("management api invites", () => {
 
   it("deletes invites for admins", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
     const { body: invite } = await createInvite(admin, org.id);
 
     const response = await authenticatedFetch(
@@ -115,7 +102,7 @@ describe("management api invites", () => {
   it("rejects invite deletion from non-admins", async () => {
     const admin = await createTestUser();
     const member = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
     const { body: invite } = await createInvite(admin, org.id);
 
     await prisma.orgMembership.create({
@@ -136,8 +123,10 @@ describe("management api invites", () => {
   it("returns 404 when deleting invites outside the org", async () => {
     const admin = await createTestUser();
     const otherAdmin = await createTestUser();
-    const org = await createOrg(admin);
-    const otherOrg = await createOrg(otherAdmin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
+    const { body: otherOrg } = await createOrg(otherAdmin, {
+      uniqueSlug: true,
+    });
     const { body: invite } = await createInvite(otherAdmin, otherOrg.id);
 
     const response = await authenticatedFetch(
@@ -154,7 +143,7 @@ describe("management api invites", () => {
   it("accepts invites for authenticated users", async () => {
     const admin = await createTestUser();
     const invitee = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
     const { body: invite } = await createInvite(admin, org.id);
 
     const response = await authenticatedFetch(
@@ -175,7 +164,7 @@ describe("management api invites", () => {
   it("rejects expired invites", async () => {
     const admin = await createTestUser();
     const invitee = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
 
     const invite = await prisma.invite.create({
       data: {
@@ -199,7 +188,7 @@ describe("management api invites", () => {
   it("rejects accepting invites for existing members", async () => {
     const admin = await createTestUser();
     const invitee = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
     const { body: invite } = await createInvite(admin, org.id);
 
     await prisma.orgMembership.create({

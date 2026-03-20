@@ -1,28 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { randomUUID } from "crypto";
-import type { User } from "@prisma/client";
 import { authenticatedFetch, createTestUser } from "../helpers/auth";
 import { jsonRequest, managementUrl } from "../helpers/api";
+import { createOrg } from "../helpers/management";
 import { prisma } from "../helpers/prisma";
-
-async function createOrg(user: User) {
-  const slug = `acme-${randomUUID()}`;
-  const response = await authenticatedFetch(
-    managementUrl("/orgs"),
-    {
-      method: "POST",
-      ...jsonRequest({ name: "Acme", slug }),
-    },
-    user
-  );
-  return response.json();
-}
 
 describe("management api members", () => {
   it("lists members for an organization", async () => {
     const admin = await createTestUser();
     const member = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
 
     await prisma.orgMembership.create({
       data: { orgId: org.id, userId: member.id, role: "member" },
@@ -44,7 +30,7 @@ describe("management api members", () => {
   it("allows members to list organization members", async () => {
     const admin = await createTestUser();
     const member = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
 
     await prisma.orgMembership.create({
       data: { orgId: org.id, userId: member.id, role: "member" },
@@ -64,7 +50,7 @@ describe("management api members", () => {
   it("updates member roles as admin", async () => {
     const admin = await createTestUser();
     const member = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
 
     const membership = await prisma.orgMembership.create({
       data: { orgId: org.id, userId: member.id, role: "member" },
@@ -87,7 +73,7 @@ describe("management api members", () => {
   it("rejects member role updates from non-admins", async () => {
     const admin = await createTestUser();
     const member = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
 
     const membership = await prisma.orgMembership.create({
       data: { orgId: org.id, userId: member.id, role: "member" },
@@ -110,8 +96,10 @@ describe("management api members", () => {
   it("returns 404 when updating members outside the org", async () => {
     const admin = await createTestUser();
     const otherAdmin = await createTestUser();
-    const org = await createOrg(admin);
-    const otherOrg = await createOrg(otherAdmin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
+    const { body: otherOrg } = await createOrg(otherAdmin, {
+      uniqueSlug: true,
+    });
 
     const membership = await prisma.orgMembership.findFirstOrThrow({
       where: { orgId: otherOrg.id, userId: otherAdmin.id },
@@ -134,7 +122,7 @@ describe("management api members", () => {
   it("removes members as admin", async () => {
     const admin = await createTestUser();
     const member = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
 
     const membership = await prisma.orgMembership.create({
       data: { orgId: org.id, userId: member.id, role: "member" },
@@ -156,7 +144,7 @@ describe("management api members", () => {
   it("rejects member deletion from non-admins", async () => {
     const admin = await createTestUser();
     const member = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
 
     const membership = await prisma.orgMembership.create({
       data: { orgId: org.id, userId: member.id, role: "member" },
@@ -176,8 +164,10 @@ describe("management api members", () => {
   it("returns 404 when deleting members outside the org", async () => {
     const admin = await createTestUser();
     const otherAdmin = await createTestUser();
-    const org = await createOrg(admin);
-    const otherOrg = await createOrg(otherAdmin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
+    const { body: otherOrg } = await createOrg(otherAdmin, {
+      uniqueSlug: true,
+    });
 
     const membership = await prisma.orgMembership.findFirstOrThrow({
       where: { orgId: otherOrg.id, userId: otherAdmin.id },
@@ -196,7 +186,7 @@ describe("management api members", () => {
 
   it("prevents removing the last admin", async () => {
     const admin = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
 
     const membership = await prisma.orgMembership.findFirstOrThrow({
       where: { orgId: org.id, userId: admin.id },
@@ -216,7 +206,7 @@ describe("management api members", () => {
   it("allows removing admins when another admin exists", async () => {
     const admin = await createTestUser();
     const secondAdmin = await createTestUser();
-    const org = await createOrg(admin);
+    const { body: org } = await createOrg(admin, { uniqueSlug: true });
 
     const secondMembership = await prisma.orgMembership.create({
       data: { orgId: org.id, userId: secondAdmin.id, role: "admin" },

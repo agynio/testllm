@@ -82,7 +82,12 @@ export default async function globalSetup() {
     stdio: "inherit",
   });
 
-  await waitForServerReady(baseEnv.AUTH_URL ?? "http://localhost:3000");
+  const authUrl = baseEnv.AUTH_URL;
+  if (!authUrl) {
+    throw new Error("AUTH_URL is required for E2E tests");
+  }
+
+  await waitForServerReady(authUrl);
 
   return async () => {
     if (!server.pid) return;

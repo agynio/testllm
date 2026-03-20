@@ -1,7 +1,9 @@
-const fallbackBaseUrl = "http://localhost:3000";
-
 export function baseUrl() {
-  return process.env.AUTH_URL ?? fallbackBaseUrl;
+  const url = process.env.AUTH_URL;
+  if (!url) {
+    throw new Error("AUTH_URL is required for E2E tests");
+  }
+  return url;
 }
 
 export function apiUrl(path: string) {
