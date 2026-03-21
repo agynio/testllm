@@ -9,6 +9,29 @@ import {
   withPositions,
 } from "../helpers/fixtures";
 
+async function readSseEvents(response: Response) {
+  const text = await response.text();
+
+  return text
+    .trim()
+    .split("\n\n")
+    .filter(Boolean)
+    .map((chunk) => {
+      const lines = chunk.split("\n");
+      const eventLine = lines.find((line) => line.startsWith("event: "));
+      const dataLine = lines.find((line) => line.startsWith("data: "));
+
+      if (!eventLine || !dataLine) {
+        throw new Error("Invalid SSE frame");
+      }
+
+      return {
+        event: eventLine.slice("event: ".length),
+        data: JSON.parse(dataLine.slice("data: ".length)),
+      };
+    });
+}
+
 async function seedResponseTest({
   orgSlug = "acme",
   suiteName = "default",
@@ -153,14 +176,19 @@ describe("responses api", () => {
     });
   });
 
-  it("matches array input items", async () => {
+  it("matches array content without streaming", async () => {
     const { org, suite, test } = await seedResponseTest({});
 
     const response = await fetch(responsesUrl(org.slug, suite.name), {
       method: "POST",
       ...jsonRequest({
         model: test.name,
-        input: [{ role: "user", content: "Hello there" }],
+        input: [
+          {
+            role: "user",
+            content: [{ type: "input_text", text: "Hello there" }],
+          },
+        ],
       }),
     });
 
@@ -270,6 +298,197 @@ describe("responses api", () => {
       status: "completed",
     });
     expect(body.output[0].id).toMatch(/^fc_/);
+  });
+
+  it("streams a simple message response as SSE", async () => {
+    const { org, suite, test } = await seedResponseTest({});
+
+    const response = await fetch(responsesUrl(org.slug, suite.name), {
+      method: "POST",
+      ...jsonRequest({
+        model: test.name,
+        stream: true,
+        input: [{ role: "user", content: "Hello there" }],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain(
+      "text/event-stream"
+    );
+
+    const events = await readSseEvents(response);
+    expect(events.map((event) => event.event)).toEqual([
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.output_text.delta",
+      "response.output_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.completed",
+    ]);
+
+    events.forEach(({ event, data }) => {
+      expect(data.type).toBe(event);
+    });
+
+    const addedItem = events[2].data.item as { id: string; status: string };
+    expect(addedItem.status).toBe("in_progress");
+
+    const deltaEvent = events[4].data as { delta: string; item_id: string };
+    expect(deltaEvent.delta).toBe("Hi! How can I help?");
+    expect(deltaEvent.item_id).toBe(addedItem.id);
+
+    const completed = events[8].data as {
+      response: { output: Array<{ content: Array<{ text: string }> }> };
+    };
+    expect(completed.response.output[0].content[0].text).toBe(
+      "Hi! How can I help?"
+    );
+  });
+
+  it("streams function_call outputs", async () => {
+    const { org, suite, test } = await seedResponseTest({
+      items: weatherSequence,
+      testName: "weather-stream",
+    });
+
+    const response = await fetch(responsesUrl(org.slug, suite.name), {
+      method: "POST",
+      ...jsonRequest({
+        model: test.name,
+        stream: true,
+        input: [
+          { role: "system", content: "You are a weather assistant." },
+          { role: "user", content: "What is the weather in SF?" },
+        ],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+
+    const events = await readSseEvents(response);
+    expect(events.map((event) => event.event)).toEqual([
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.function_call_arguments.delta",
+      "response.function_call_arguments.done",
+      "response.output_item.done",
+      "response.completed",
+    ]);
+
+    const addedItem = events[2].data.item as {
+      status: string;
+      call_id: string;
+      arguments: string;
+    };
+    expect(addedItem.status).toBe("in_progress");
+    expect(addedItem.call_id).toBe("call_weather");
+    expect(addedItem.arguments).toBe("");
+
+    const deltaEvent = events[3].data as { delta: string };
+    expect(deltaEvent.delta).toBe("{\"city\":\"SF\"}");
+
+    const doneEvent = events[4].data as { name: string; arguments: string };
+    expect(doneEvent.name).toBe("get_weather");
+    expect(doneEvent.arguments).toBe("{\"city\":\"SF\"}");
+  });
+
+  it("streams multiple output items with correct output indexes", async () => {
+    const { org, suite, test } = await seedResponseTest({
+      items: multiOutputSequence,
+      testName: "multi-stream",
+    });
+
+    const response = await fetch(responsesUrl(org.slug, suite.name), {
+      method: "POST",
+      ...jsonRequest({
+        model: test.name,
+        stream: true,
+        input: [{ role: "user", content: "Run the workflow" }],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+
+    const events = await readSseEvents(response);
+    const addedIndexes = events
+      .filter((event) => event.event === "response.output_item.added")
+      .map((event) => (event.data as { output_index: number }).output_index);
+    const doneIndexes = events
+      .filter((event) => event.event === "response.output_item.done")
+      .map((event) => (event.data as { output_index: number }).output_index);
+
+    expect(addedIndexes).toEqual([0, 1]);
+    expect(doneIndexes).toEqual([0, 1]);
+  });
+
+  it("streams responses when input uses typed content", async () => {
+    const { org, suite, test } = await seedResponseTest({});
+
+    const response = await fetch(responsesUrl(org.slug, suite.name), {
+      method: "POST",
+      ...jsonRequest({
+        model: test.name,
+        stream: true,
+        input: [
+          {
+            role: "user",
+            content: [
+              { type: "input_text", text: "Hello " },
+              { type: "input_text", text: "there" },
+            ],
+          },
+        ],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const events = await readSseEvents(response);
+    const completed = events.find(
+      (event) => event.event === "response.completed"
+    );
+
+    expect(completed?.data.response.output[0].content[0].text).toBe(
+      "Hi! How can I help?"
+    );
+  });
+
+  it("returns JSON when stream is false", async () => {
+    const { org, suite, test } = await seedResponseTest({});
+
+    const response = await fetch(responsesUrl(org.slug, suite.name), {
+      method: "POST",
+      ...jsonRequest({
+        model: test.name,
+        stream: false,
+        input: [{ role: "user", content: "Hello there" }],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain(
+      "application/json"
+    );
+    const body = await response.json();
+    expect(body.output).toHaveLength(1);
+  });
+
+  it("returns JSON errors even when stream is true", async () => {
+    const response = await fetch(responsesUrl("acme", "default"), {
+      method: "POST",
+      ...jsonRequest({ model: "test", input: 123, stream: true }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("content-type")).toContain(
+      "application/json"
+    );
+    const body = await response.json();
+    expect(body.error).toMatchObject({ code: "invalid_request" });
   });
 
   it("returns input_mismatch for content differences", async () => {

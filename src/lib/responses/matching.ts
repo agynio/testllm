@@ -5,10 +5,20 @@ import type {
   TestItemRecord,
 } from "@/lib/responses/types";
 
+const InputMessageContentPartSchema = z.object({
+  type: z.literal("input_text"),
+  text: z.string(),
+});
+
+const InputMessageContentSchema = z.union([
+  z.string(),
+  z.array(InputMessageContentPartSchema),
+]);
+
 const InputMessageSchema = z.object({
   type: z.literal("message").optional(),
   role: z.enum(["user", "system", "developer"]),
-  content: z.string(),
+  content: InputMessageContentSchema,
 });
 
 const InputFunctionCallSchema = z.object({
@@ -33,6 +43,7 @@ const InputItemSchema = z.union([
 export const InputSchema = z.union([z.string(), z.array(InputItemSchema)]);
 
 type InputSchemaValue = z.infer<typeof InputSchema>;
+type InputMessageContent = z.infer<typeof InputMessageContentSchema>;
 
 const StoredMessageContentSchema = z.object({
   role: z.enum(["user", "system", "developer", "assistant"]),
@@ -128,9 +139,14 @@ export function normalizeInput(input: InputSchemaValue): NormalizedInputItem[] {
     return {
       type: "message",
       role: item.role,
-      content: item.content,
+      content: normalizeMessageContent(item.content),
     };
   });
+}
+
+function normalizeMessageContent(content: InputMessageContent): string {
+  if (typeof content === "string") return content;
+  return content.map((part) => part.text).join("");
 }
 
 // Internal matching logic (assumes validated inputs).

@@ -9,12 +9,13 @@ import {
   normalizeInput,
   parseTestSequence,
 } from "@/lib/responses/matching";
-import { formatResponse } from "@/lib/responses/formatting";
+import { formatResponse, formatSSEStream } from "@/lib/responses/formatting";
 
 const RequestSchema = z
   .object({
     model: z.string().min(1, { message: "model is required" }),
     input: InputSchema,
+    stream: z.boolean().optional(),
   })
   .passthrough();
 
@@ -110,7 +111,7 @@ export async function POST(
   const parsedRequest = await parseRequestBody(request);
   if (!parsedRequest.ok) return parsedRequest.error;
 
-  const { model, input } = parsedRequest.data;
+  const { model, input, stream } = parsedRequest.data;
   const normalizedInput = normalizeInput(input);
 
   const org = await prisma.organization.findUnique({
@@ -158,6 +159,16 @@ export async function POST(
   const result = matchInput(sequence, normalizedInput);
   if (isMatchError(result)) {
     return openaiError(result.status, result.message, result.type, result.code);
+  }
+
+  if (stream) {
+    const streamBody = formatSSEStream(model, result.outputItems);
+    return new Response(streamBody, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+      },
+    });
   }
 
   const response = formatResponse(model, result.outputItems);
