@@ -125,6 +125,45 @@ describe("matchInput", () => {
     ]);
   });
 
+  it("keeps string content unchanged in array input", () => {
+    const normalized = normalizeInput([
+      { role: "user", content: "Hello there" },
+    ]);
+
+    expect(normalized).toEqual([
+      { type: "message", role: "user", content: "Hello there" },
+    ]);
+  });
+
+  it("normalizes array content into a single string", () => {
+    const normalized = normalizeInput([
+      {
+        role: "user",
+        content: [{ type: "input_text", text: "Hello" }],
+      },
+    ]);
+
+    expect(normalized).toEqual([
+      { type: "message", role: "user", content: "Hello" },
+    ]);
+  });
+
+  it("concatenates multi-part array content", () => {
+    const normalized = normalizeInput([
+      {
+        role: "user",
+        content: [
+          { type: "input_text", text: "Hello " },
+          { type: "input_text", text: "there" },
+        ],
+      },
+    ]);
+
+    expect(normalized).toEqual([
+      { type: "message", role: "user", content: "Hello there" },
+    ]);
+  });
+
   it("returns a mismatch when input differs", () => {
     const sequence = [
       messageItem(0, "user", "Expected"),

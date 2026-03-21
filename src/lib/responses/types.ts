@@ -77,16 +77,18 @@ export type NormalizedInputItem =
   | NormalizedInputFunctionCall
   | NormalizedInputFunctionCallOutput;
 
+export interface OutputTextContentPart {
+  type: "output_text";
+  text: string;
+  annotations: [];
+}
+
 export interface OpenAIOutputMessage {
   id: string;
   type: "message";
   role: "assistant";
-  status: "completed";
-  content: Array<{
-    type: "output_text";
-    text: string;
-    annotations: [];
-  }>;
+  status: "completed" | "in_progress";
+  content: OutputTextContentPart[];
 }
 
 export interface OpenAIOutputFunctionCall {
@@ -95,7 +97,7 @@ export interface OpenAIOutputFunctionCall {
   call_id: string;
   name: string;
   arguments: string;
-  status: "completed";
+  status: "completed" | "in_progress";
 }
 
 export type OpenAIOutputItem =
@@ -110,3 +112,127 @@ export interface OpenAIResponse {
   output: OpenAIOutputItem[];
   status: "completed";
 }
+
+export interface OpenAIUsage {
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+}
+
+export interface OpenAIResponseInProgress {
+  id: string;
+  object: "response";
+  created_at: number;
+  model: string;
+  output: [];
+  status: "in_progress";
+  usage: null;
+}
+
+export interface OpenAIResponseCompleted {
+  id: string;
+  object: "response";
+  created_at: number;
+  model: string;
+  output: OpenAIOutputItem[];
+  status: "completed";
+  usage: OpenAIUsage;
+}
+
+export interface ResponseCreatedEvent {
+  type: "response.created";
+  response: OpenAIResponseInProgress;
+  sequence_number: number;
+}
+
+export interface ResponseInProgressEvent {
+  type: "response.in_progress";
+  response: OpenAIResponseInProgress;
+  sequence_number: number;
+}
+
+export interface ResponseOutputItemAddedEvent {
+  type: "response.output_item.added";
+  output_index: number;
+  item: OpenAIOutputItem;
+  sequence_number: number;
+}
+
+export interface ResponseContentPartAddedEvent {
+  type: "response.content_part.added";
+  item_id: string;
+  output_index: number;
+  content_index: number;
+  part: OutputTextContentPart;
+  sequence_number: number;
+}
+
+export interface ResponseOutputTextDeltaEvent {
+  type: "response.output_text.delta";
+  item_id: string;
+  output_index: number;
+  content_index: number;
+  delta: string;
+  sequence_number: number;
+}
+
+export interface ResponseOutputTextDoneEvent {
+  type: "response.output_text.done";
+  item_id: string;
+  output_index: number;
+  content_index: number;
+  text: string;
+  sequence_number: number;
+}
+
+export interface ResponseContentPartDoneEvent {
+  type: "response.content_part.done";
+  item_id: string;
+  output_index: number;
+  content_index: number;
+  part: OutputTextContentPart;
+  sequence_number: number;
+}
+
+export interface ResponseFunctionCallArgumentsDeltaEvent {
+  type: "response.function_call_arguments.delta";
+  item_id: string;
+  output_index: number;
+  delta: string;
+  sequence_number: number;
+}
+
+export interface ResponseFunctionCallArgumentsDoneEvent {
+  type: "response.function_call_arguments.done";
+  item_id: string;
+  output_index: number;
+  name: string;
+  arguments: string;
+  sequence_number: number;
+}
+
+export interface ResponseOutputItemDoneEvent {
+  type: "response.output_item.done";
+  output_index: number;
+  item: OpenAIOutputItem;
+  sequence_number: number;
+}
+
+export interface ResponseCompletedEvent {
+  type: "response.completed";
+  response: OpenAIResponseCompleted;
+  sequence_number: number;
+}
+
+export type SSEEvent =
+  | ResponseCreatedEvent
+  | ResponseInProgressEvent
+  | ResponseOutputItemAddedEvent
+  | ResponseContentPartAddedEvent
+  | ResponseOutputTextDeltaEvent
+  | ResponseOutputTextDoneEvent
+  | ResponseContentPartDoneEvent
+  | ResponseFunctionCallArgumentsDeltaEvent
+  | ResponseFunctionCallArgumentsDoneEvent
+  | ResponseOutputItemDoneEvent
+  | ResponseCompletedEvent;
