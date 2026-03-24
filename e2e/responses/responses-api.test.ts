@@ -241,7 +241,7 @@ describe("responses api", () => {
   });
 
   it("matches system prompt sequences", async () => {
-    const { org, suite } = await seedResponseTest({
+    const { org, suite, test } = await seedResponseTest({
       items: systemPromptSequence,
       testName: "system-prompt",
     });
@@ -249,7 +249,7 @@ describe("responses api", () => {
     const response = await fetch(responsesUrl(org.slug, suite.name), {
       method: "POST",
       ...jsonRequest({
-        model: "system-prompt",
+        model: test.name,
         input: [
           { role: "system", content: "You are personal assistant" },
           { role: "user", content: "hi" },
@@ -263,6 +263,7 @@ describe("responses api", () => {
     expect(body.output[0]).toMatchObject({
       type: "message",
       role: "assistant",
+      status: "completed",
     });
     expect(body.output[0].content[0].text).toBe(
       "Hello! I am here to help!"
