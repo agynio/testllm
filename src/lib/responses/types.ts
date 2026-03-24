@@ -6,6 +6,9 @@ export type MessageRole = InputMessageRole | "assistant";
 export interface MessageContent {
   role: MessageRole;
   content: string;
+  // Wildcards are only meaningful for input (non-assistant) messages.
+  any_role?: boolean;
+  any_content?: boolean;
 }
 
 export interface FunctionCallContent {

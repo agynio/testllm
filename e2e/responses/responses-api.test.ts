@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { jsonRequest, responsesUrl } from "../helpers/api";
 import { prisma } from "../helpers/prisma";
 import {
+  anyContentSequence,
+  anyRoleSequence,
   multiOutputSequence,
   simpleMessageSequence,
   TestItemFixture,
@@ -195,6 +197,46 @@ describe("responses api", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.output).toHaveLength(1);
+  });
+
+  it("matches messages with any_content", async () => {
+    const { org, suite, test } = await seedResponseTest({
+      items: anyContentSequence,
+      testName: "any-content",
+    });
+
+    const response = await fetch(responsesUrl(org.slug, suite.name), {
+      method: "POST",
+      ...jsonRequest({
+        model: test.name,
+        input: [{ role: "user", content: "Different content" }],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.output).toHaveLength(1);
+    expect(body.output[0].type).toBe("message");
+  });
+
+  it("matches messages with any_role", async () => {
+    const { org, suite, test } = await seedResponseTest({
+      items: anyRoleSequence,
+      testName: "any-role",
+    });
+
+    const response = await fetch(responsesUrl(org.slug, suite.name), {
+      method: "POST",
+      ...jsonRequest({
+        model: test.name,
+        input: [{ role: "system", content: "Hello" }],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.output).toHaveLength(1);
+    expect(body.output[0].type).toBe("message");
   });
 
   it("supports multi-turn conversations", async () => {

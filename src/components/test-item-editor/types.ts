@@ -1,6 +1,8 @@
 export type MessageContent = {
   role: "user" | "system" | "developer" | "assistant";
   content: string;
+  any_role?: boolean;
+  any_content?: boolean;
 };
 
 export type FunctionCallContent = {
