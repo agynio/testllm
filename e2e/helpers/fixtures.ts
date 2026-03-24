@@ -61,6 +61,30 @@ export const weatherSequence: TestItemFixture[] = [
   },
 ];
 
+export const systemPromptSequence: TestItemFixture[] = [
+  {
+    type: "message",
+    content: {
+      role: "system",
+      content: "You are personal assistant",
+    },
+  },
+  {
+    type: "message",
+    content: {
+      role: "user",
+      content: "hi",
+    },
+  },
+  {
+    type: "message",
+    content: {
+      role: "assistant",
+      content: "Hello! I am here to help!",
+    },
+  },
+];
+
 export const anyRoleSequence: TestItemFixture[] = [
   {
     type: "message",

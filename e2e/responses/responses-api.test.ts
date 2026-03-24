@@ -6,6 +6,7 @@ import {
   anyRoleSequence,
   multiOutputSequence,
   simpleMessageSequence,
+  systemPromptSequence,
   TestItemFixture,
   weatherSequence,
   withPositions,
@@ -237,6 +238,36 @@ describe("responses api", () => {
     const body = await response.json();
     expect(body.output).toHaveLength(1);
     expect(body.output[0].type).toBe("message");
+  });
+
+  it("matches system prompt sequences", async () => {
+    const { org, suite, test } = await seedResponseTest({
+      items: systemPromptSequence,
+      testName: "system-prompt",
+    });
+
+    const response = await fetch(responsesUrl(org.slug, suite.name), {
+      method: "POST",
+      ...jsonRequest({
+        model: test.name,
+        input: [
+          { role: "system", content: "You are personal assistant" },
+          { role: "user", content: "hi" },
+        ],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.output).toHaveLength(1);
+    expect(body.output[0]).toMatchObject({
+      type: "message",
+      role: "assistant",
+      status: "completed",
+    });
+    expect(body.output[0].content[0].text).toBe(
+      "Hello! I am here to help!"
+    );
   });
 
   it("supports multi-turn conversations", async () => {
