@@ -17,7 +17,7 @@ const InputMessageContentSchema = z.union([
 
 const InputMessageSchema = z.object({
   type: z.literal("message").optional(),
-  role: z.enum(["user", "system", "developer"]),
+  role: z.enum(["user", "system", "developer", "assistant"]),
   content: InputMessageContentSchema,
 });
 

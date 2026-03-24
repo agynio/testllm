@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  InputSchema,
   isMatchError,
   matchInput,
   normalizeInput,
@@ -95,6 +96,37 @@ describe("matchInput", () => {
     if (!isMatchError(secondResult)) {
       expect(secondResult.outputItems).toHaveLength(1);
       expect(secondResult.outputItems[0].type).toBe("message");
+    }
+  });
+
+  it("matches multi-turn input with assistant messages", () => {
+    const sequence = [
+      messageItem(0, "system", "System prompt"),
+      messageItem(1, "user", "Hello"),
+      messageItem(2, "assistant", "Hi there"),
+      messageItem(3, "user", "How are you?"),
+      messageItem(4, "assistant", "Doing great"),
+    ];
+
+    const parsedInput = InputSchema.parse([
+      { role: "system", content: "System prompt" },
+      { role: "user", content: "Hello" },
+      { role: "assistant", content: "Hi there" },
+      { role: "user", content: "How are you?" },
+    ]);
+
+    const result = matchInput(sequence, normalizeInput(parsedInput));
+
+    expect(isMatchError(result)).toBe(false);
+    if (!isMatchError(result)) {
+      expect(result.outputItems).toHaveLength(1);
+      expect(result.outputItems[0].type).toBe("message");
+      if (result.outputItems[0].type === "message") {
+        expect(result.outputItems[0].content).toEqual({
+          role: "assistant",
+          content: "Doing great",
+        });
+      }
     }
   });
 
