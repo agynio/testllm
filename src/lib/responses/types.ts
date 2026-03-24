@@ -6,6 +6,8 @@ export type MessageRole = InputMessageRole | "assistant";
 export interface MessageContent {
   role: MessageRole;
   content: string;
+  any_role?: boolean;
+  any_content?: boolean;
 }
 
 export interface FunctionCallContent {

@@ -61,6 +61,42 @@ export const weatherSequence: TestItemFixture[] = [
   },
 ];
 
+export const anyRoleSequence: TestItemFixture[] = [
+  {
+    type: "message",
+    content: {
+      role: "user",
+      content: "Hello",
+      any_role: true,
+    },
+  },
+  {
+    type: "message",
+    content: {
+      role: "assistant",
+      content: "Role wildcard matched.",
+    },
+  },
+];
+
+export const anyContentSequence: TestItemFixture[] = [
+  {
+    type: "message",
+    content: {
+      role: "user",
+      content: "Ignored",
+      any_content: true,
+    },
+  },
+  {
+    type: "message",
+    content: {
+      role: "assistant",
+      content: "Content wildcard matched.",
+    },
+  },
+];
+
 export const multiOutputSequence: TestItemFixture[] = [
   {
     type: "message",

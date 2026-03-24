@@ -12,12 +12,13 @@ import type {
 const messageItem = (
   position: number,
   role: MessageRole,
-  content: string
+  content: string,
+  options?: { any_role?: boolean; any_content?: boolean }
 ): TestItemRecord => ({
   id: `msg-${position}`,
   position,
   type: "message",
-  content: { role, content },
+  content: { role, content, ...options },
 });
 
 const functionCallItem = (
@@ -162,6 +163,36 @@ describe("matchInput", () => {
     expect(normalized).toEqual([
       { type: "message", role: "user", content: "Hello there" },
     ]);
+  });
+
+  it("matches any_content without requiring exact content", () => {
+    const sequence = [
+      messageItem(0, "user", "Expected", { any_content: true }),
+      messageItem(1, "assistant", "Output"),
+    ];
+    const input = normalizeInput([{ role: "user", content: "Actual" }]);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(false);
+    if (!isMatchError(result)) {
+      expect(result.outputItems).toHaveLength(1);
+      expect(result.outputItems[0].type).toBe("message");
+    }
+  });
+
+  it("matches any_role without requiring exact role", () => {
+    const sequence = [
+      messageItem(0, "user", "Hello", { any_role: true }),
+      messageItem(1, "assistant", "Output"),
+    ];
+    const input = normalizeInput([{ role: "system", content: "Hello" }]);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(false);
+    if (!isMatchError(result)) {
+      expect(result.outputItems).toHaveLength(1);
+      expect(result.outputItems[0].type).toBe("message");
+    }
   });
 
   it("returns a mismatch when input differs", () => {

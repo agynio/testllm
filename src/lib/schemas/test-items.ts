@@ -3,6 +3,8 @@ import { z } from "zod";
 const InputMessageContentSchema = z.object({
   role: z.enum(["user", "system", "developer"]),
   content: z.string(),
+  any_role: z.boolean().optional(),
+  any_content: z.boolean().optional(),
 });
 
 const OutputMessageContentSchema = z.object({

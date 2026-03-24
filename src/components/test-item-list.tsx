@@ -30,7 +30,7 @@ function getDirection(item: TestItemListItem) {
 
 function getPreview(item: TestItemListItem) {
   if (item.type === "message") {
-    return item.content.content;
+    return item.content.any_content ? "<any content>" : item.content.content;
   }
   if (item.type === "function_call") {
     return `${item.content.name}(${item.content.arguments})`;
@@ -40,7 +40,7 @@ function getPreview(item: TestItemListItem) {
 
 function getMetaLabel(item: TestItemListItem) {
   if (item.type === "message") {
-    return item.content.role;
+    return item.content.any_role ? "any role" : item.content.role;
   }
   if (item.type === "function_call") {
     return item.content.name;
@@ -95,7 +95,11 @@ export function TestItemList({ items }: TestItemListProps) {
             {expanded ? (
               <div className="space-y-2 border-t px-4 py-3 text-sm">
                 {item.type === "message" ? (
-                  <div className="whitespace-pre-wrap">{item.content.content}</div>
+                  <div className="whitespace-pre-wrap">
+                    {item.content.any_content
+                      ? "<any content>"
+                      : item.content.content}
+                  </div>
                 ) : null}
                 {item.type === "function_call" ? (
                   <div className="space-y-2">

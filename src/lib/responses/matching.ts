@@ -48,6 +48,8 @@ type InputMessageContent = z.infer<typeof InputMessageContentSchema>;
 const StoredMessageContentSchema = z.object({
   role: z.enum(["user", "system", "developer", "assistant"]),
   content: z.string(),
+  any_role: z.boolean().optional(),
+  any_content: z.boolean().optional(),
 });
 
 const StoredFunctionCallContentSchema = z.object({
@@ -233,14 +235,23 @@ function compareItems(
 
   if (expected.type === "message" && actual.type === "message") {
     const content = expected.content;
-    if (content.role !== actual.role || content.content !== actual.content) {
+    const roleMatches = content.any_role || content.role === actual.role;
+    const contentMatches =
+      content.any_content || content.content === actual.content;
+    if (!roleMatches || !contentMatches) {
+      const roleLabel = content.any_role
+        ? "any role"
+        : `role '${content.role}'`;
+      const contentLabel = content.any_content
+        ? "any content"
+        : `content '${content.content}'`;
       return {
         status: 400,
         message:
           `Input mismatch at position ${position}: ` +
-          `expected message with role '${content.role}' and content ` +
-          `'${content.content}', got message with role '${actual.role}' ` +
-          `and content '${actual.content}'`,
+          `expected message with ${roleLabel} and ${contentLabel}, ` +
+          `got message with role '${actual.role}' and content ` +
+          `'${actual.content}'`,
         type: "invalid_request_error",
         code: "input_mismatch",
       };

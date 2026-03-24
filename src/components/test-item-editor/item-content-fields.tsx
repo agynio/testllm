@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -23,19 +24,55 @@ type ItemContentFieldsProps = {
 
 export function ItemContentFields({ item, onChange }: ItemContentFieldsProps) {
   if (item.type === "message") {
+    const wildcardDisabled = item.content.role === "assistant";
+    const anyRole = !wildcardDisabled && Boolean(item.content.any_role);
+    const anyContent = !wildcardDisabled && Boolean(item.content.any_content);
+    const anyRoleId = `${item.clientId}-any-role`;
+    const anyContentId = `${item.clientId}-any-content`;
+
     return (
       <div className="grid gap-3">
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label>Role</Label>
+            <div className="flex items-center justify-between">
+              <Label>Role</Label>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id={anyRoleId}
+                  checked={anyRole}
+                  disabled={wildcardDisabled}
+                  onCheckedChange={(checked) =>
+                    onChange({
+                      ...item,
+                      content: {
+                        ...item.content,
+                        any_role: checked === true ? true : undefined,
+                      },
+                    })
+                  }
+                />
+                <Label htmlFor={anyRoleId} className="text-xs text-muted-foreground">
+                  Any
+                </Label>
+              </div>
+            </div>
             <Select
               value={item.content.role}
+              disabled={anyRole}
               onValueChange={(value) =>
                 onChange({
                   ...item,
                   content: {
                     ...item.content,
                     role: value as MessageContent["role"],
+                    any_role:
+                      value === "assistant"
+                        ? undefined
+                        : item.content.any_role,
+                    any_content:
+                      value === "assistant"
+                        ? undefined
+                        : item.content.any_content,
                   },
                 })
               }
@@ -53,9 +90,31 @@ export function ItemContentFields({ item, onChange }: ItemContentFieldsProps) {
           </div>
         </div>
         <div className="space-y-2">
-          <Label>Content</Label>
+          <div className="flex items-center justify-between">
+            <Label>Content</Label>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id={anyContentId}
+                checked={anyContent}
+                disabled={wildcardDisabled}
+                onCheckedChange={(checked) =>
+                  onChange({
+                    ...item,
+                    content: {
+                      ...item.content,
+                      any_content: checked === true ? true : undefined,
+                    },
+                  })
+                }
+              />
+              <Label htmlFor={anyContentId} className="text-xs text-muted-foreground">
+                Any
+              </Label>
+            </div>
+          </div>
           <Textarea
             value={item.content.content}
+            disabled={anyContent}
             onChange={(event) =>
               onChange({
                 ...item,
