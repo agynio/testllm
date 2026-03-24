@@ -48,6 +48,7 @@ type InputMessageContent = z.infer<typeof InputMessageContentSchema>;
 const StoredMessageContentSchema = z.object({
   role: z.enum(["user", "system", "developer", "assistant"]),
   content: z.string(),
+  // Wildcards are only meaningful for input (non-assistant) messages.
   any_role: z.boolean().optional(),
   any_content: z.boolean().optional(),
 });

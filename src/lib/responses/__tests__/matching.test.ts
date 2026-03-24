@@ -195,7 +195,27 @@ describe("matchInput", () => {
     }
   });
 
-  it("returns a mismatch when input differs", () => {
+  it("matches when any_role and any_content are both true", () => {
+    const sequence = [
+      messageItem(0, "user", "Expected", {
+        any_role: true,
+        any_content: true,
+      }),
+      messageItem(1, "assistant", "Output"),
+    ];
+    const input = normalizeInput([
+      { role: "system", content: "Different content" },
+    ]);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(false);
+    if (!isMatchError(result)) {
+      expect(result.outputItems).toHaveLength(1);
+      expect(result.outputItems[0].type).toBe("message");
+    }
+  });
+
+  it("requires exact match when no wildcards are set", () => {
     const sequence = [
       messageItem(0, "user", "Expected"),
       messageItem(1, "assistant", "Output"),
