@@ -55,7 +55,7 @@ export type OutputTestItem =
 
 export interface NormalizedInputMessage {
   type: "message";
-  role: InputMessageRole;
+  role: MessageRole;
   content: string;
 }
 
