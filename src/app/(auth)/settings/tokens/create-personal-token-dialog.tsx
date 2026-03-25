@@ -26,18 +26,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { EXPIRATION_OPTIONS } from "@/lib/token-constants";
 
 type ActionState = TokenCreateResult | null;
 
 const DEFAULT_EXPIRATION = "30d";
-
-const EXPIRATION_OPTIONS = [
-  { value: "24h", label: "24 hours" },
-  { value: "7d", label: "7 days" },
-  { value: "30d", label: "30 days" },
-  { value: "90d", label: "90 days" },
-  { value: "never", label: "Never" },
-];
 
 export function CreatePersonalTokenDialog() {
   const [open, setOpen] = React.useState(false);

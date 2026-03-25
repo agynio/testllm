@@ -10,11 +10,7 @@ export type TokenCreateResult =
   | { success: true; rawToken: string }
   | { success: false; error: string };
 
-function computeExpiresAt(expiresIn: string | undefined): Date | null | undefined {
-  if (!expiresIn) {
-    return undefined;
-  }
-
+function computeExpiresAt(expiresIn: string): Date | null {
   const now = Date.now();
 
   switch (expiresIn) {
@@ -29,7 +25,7 @@ function computeExpiresAt(expiresIn: string | undefined): Date | null | undefine
     case "never":
       return null;
     default:
-      return undefined;
+      throw new Error(`Unknown expiresIn value: ${expiresIn}`);
   }
 }
 
@@ -47,10 +43,11 @@ export async function createPersonalToken(
     return { success: false, error: "Name is required" };
   }
 
-  const expiresAt = computeExpiresAt(getFormValue(formData, "expiresIn"));
-  if (expiresAt === undefined) {
-    return { success: false, error: "Invalid expiration" };
+  const expiresIn = getFormValue(formData, "expiresIn");
+  if (!expiresIn) {
+    return { success: false, error: "Expiration is required" };
   }
+  const expiresAt = computeExpiresAt(expiresIn);
 
   const token = generateToken("personal");
 
@@ -60,7 +57,7 @@ export async function createPersonalToken(
       name,
       tokenHash: token.tokenHash,
       tokenPrefix: token.tokenPrefix,
-      expiresAt: expiresAt ?? undefined,
+      expiresAt,
     },
   });
 
@@ -120,10 +117,11 @@ export async function createOrgToken(
     return { success: false, error: "Invalid role" };
   }
 
-  const expiresAt = computeExpiresAt(getFormValue(formData, "expiresIn"));
-  if (expiresAt === undefined) {
-    return { success: false, error: "Invalid expiration" };
+  const expiresIn = getFormValue(formData, "expiresIn");
+  if (!expiresIn) {
+    return { success: false, error: "Expiration is required" };
   }
+  const expiresAt = computeExpiresAt(expiresIn);
 
   const token = generateToken("org");
 
@@ -134,7 +132,7 @@ export async function createOrgToken(
       role,
       tokenHash: token.tokenHash,
       tokenPrefix: token.tokenPrefix,
-      expiresAt: expiresAt ?? undefined,
+      expiresAt,
     },
   });
 

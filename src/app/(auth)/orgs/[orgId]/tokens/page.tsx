@@ -15,8 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { prisma } from "@/lib/prisma";
-
-const TOKEN_MASK = "********";
+import { TOKEN_MASK } from "@/lib/token-constants";
 
 export default async function OrgTokensPage({
   params,
