@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ChevronDown, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +42,10 @@ export function UserMenu({ user, onSignOut }: UserMenuProps) {
             <p className="text-xs text-muted-foreground">{displayEmail}</p>
           ) : null}
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/settings/tokens">API Tokens</Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <form action={onSignOut}>
           <DropdownMenuItem asChild>
