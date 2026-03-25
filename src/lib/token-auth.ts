@@ -31,10 +31,12 @@ export async function resolveTokenIdentity(): Promise<TokenIdentity | null> {
     if (!row) return null;
     if (row.expiresAt && row.expiresAt < new Date()) return null;
 
-    await prisma.personalApiToken.update({
-      where: { id: row.id },
-      data: { lastUsedAt: new Date() },
-    });
+    void prisma.personalApiToken
+      .update({
+        where: { id: row.id },
+        data: { lastUsedAt: new Date() },
+      })
+      .then(() => undefined);
 
     return { kind: "personal_token", tokenId: row.id, userId: row.userId };
   }
@@ -46,10 +48,12 @@ export async function resolveTokenIdentity(): Promise<TokenIdentity | null> {
     if (!row) return null;
     if (row.expiresAt && row.expiresAt < new Date()) return null;
 
-    await prisma.orgApiToken.update({
-      where: { id: row.id },
-      data: { lastUsedAt: new Date() },
-    });
+    void prisma.orgApiToken
+      .update({
+        where: { id: row.id },
+        data: { lastUsedAt: new Date() },
+      })
+      .then(() => undefined);
 
     return {
       kind: "org_token",
