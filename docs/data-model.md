@@ -6,8 +6,10 @@
 erDiagram
     Organization ||--o{ OrgMembership : has
     Organization ||--o{ Invite : has
+    Organization ||--o{ OrgApiToken : has
     Organization ||--o{ TestSuite : contains
     User ||--o{ OrgMembership : has
+    User ||--o{ PersonalApiToken : has
     TestSuite ||--o{ Test : contains
     Test ||--o{ TestItem : contains
 
@@ -40,6 +42,29 @@ erDiagram
         uuid org_id FK
         string token
         timestamp expires_at
+        timestamp created_at
+    }
+
+    PersonalApiToken {
+        uuid id PK
+        uuid user_id FK
+        string name
+        string token_hash
+        string token_prefix
+        timestamp expires_at
+        timestamp last_used_at
+        timestamp created_at
+    }
+
+    OrgApiToken {
+        uuid id PK
+        uuid org_id FK
+        string name
+        string role
+        string token_hash
+        string token_prefix
+        timestamp expires_at
+        timestamp last_used_at
         timestamp created_at
     }
 
@@ -133,6 +158,37 @@ The invite flow:
 2. The service returns a URL containing the token.
 3. The invited user opens the URL, authenticates via OIDC, and is added to the organization as a `member`.
 4. The invite is deleted after use.
+
+### PersonalApiToken
+
+User-scoped API token. Personal tokens inherit all organization memberships and roles of the user.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `user_id` | UUID | FK → User |
+| `name` | string | Display name |
+| `token_hash` | string | SHA-256 hash of the raw token |
+| `token_prefix` | string | First 8 chars of the raw token |
+| `expires_at` | timestamp | Optional expiration time |
+| `last_used_at` | timestamp | Last time the token was used |
+| `created_at` | timestamp | Creation time |
+
+### OrgApiToken
+
+Organization-scoped API token with a fixed role.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `org_id` | UUID | FK → Organization |
+| `name` | string | Display name |
+| `role` | enum | `admin` or `member` |
+| `token_hash` | string | SHA-256 hash of the raw token |
+| `token_prefix` | string | First 8 chars of the raw token |
+| `expires_at` | timestamp | Optional expiration time |
+| `last_used_at` | timestamp | Last time the token was used |
+| `created_at` | timestamp | Creation time |
 
 ### TestSuite
 

@@ -1,6 +1,6 @@
 # Management API
 
-The Management API provides CRUD operations for all TestLLM resources. It is used by the web UI and can be called directly. All Management API endpoints require OIDC authentication (see [Authentication](authentication.md)).
+The Management API provides CRUD operations for all TestLLM resources. It is used by the web UI and can be called directly. Management API endpoints require authentication via OIDC sessions or API tokens (see [Authentication](authentication.md)). Token management endpoints are session-only.
 
 ## Base URL
 
@@ -260,6 +260,158 @@ DELETE /api/orgs/{orgId}/invites/{inviteId}
 **Response:** `204 No Content`
 
 **Authorization:** `admin` role required.
+
+---
+
+## Personal Tokens
+
+### Create Personal Token
+
+```
+POST /api/user/tokens
+```
+
+**Request:**
+
+```json
+{
+  "name": "CI token",
+  "expires_at": "2025-01-16T10:00:00Z"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | yes | Token display name |
+| `expires_at` | string (datetime) | no | Optional expiration timestamp |
+
+**Response:** `201 Created`
+
+```json
+{
+  "id": "token-uuid",
+  "name": "CI token",
+  "token": "tlp_0123456789abcdef0123456789abcdef",
+  "token_prefix": "tlp_0123",
+  "expires_at": "2025-01-16T10:00:00Z",
+  "created_at": "2025-01-15T10:00:00Z"
+}
+```
+
+The raw token is returned only once.
+
+**Authorization:** OIDC session required.
+
+### List Personal Tokens
+
+```
+GET /api/user/tokens
+```
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "id": "token-uuid",
+    "name": "CI token",
+    "token_prefix": "tlp_0123",
+    "expires_at": "2025-01-16T10:00:00Z",
+    "last_used_at": "2025-01-15T12:00:00Z",
+    "created_at": "2025-01-15T10:00:00Z"
+  }
+]
+```
+
+**Authorization:** OIDC session required.
+
+### Delete Personal Token
+
+```
+DELETE /api/user/tokens/{tokenId}
+```
+
+**Response:** `204 No Content`
+
+**Authorization:** OIDC session required.
+
+---
+
+## Organization Tokens
+
+### Create Organization Token
+
+```
+POST /api/orgs/{orgId}/tokens
+```
+
+**Request:**
+
+```json
+{
+  "name": "Terraform",
+  "role": "admin",
+  "expires_at": "2025-01-16T10:00:00Z"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | yes | Token display name |
+| `role` | enum | yes | `admin` or `member` |
+| `expires_at` | string (datetime) | no | Optional expiration timestamp |
+
+**Response:** `201 Created`
+
+```json
+{
+  "id": "token-uuid",
+  "name": "Terraform",
+  "role": "admin",
+  "token": "tlo_0123456789abcdef0123456789abcdef",
+  "token_prefix": "tlo_0123",
+  "expires_at": "2025-01-16T10:00:00Z",
+  "created_at": "2025-01-15T10:00:00Z"
+}
+```
+
+The raw token is returned only once.
+
+**Authorization:** OIDC session required (`admin` role).
+
+### List Organization Tokens
+
+```
+GET /api/orgs/{orgId}/tokens
+```
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "id": "token-uuid",
+    "name": "Terraform",
+    "role": "admin",
+    "token_prefix": "tlo_0123",
+    "expires_at": "2025-01-16T10:00:00Z",
+    "last_used_at": "2025-01-15T12:00:00Z",
+    "created_at": "2025-01-15T10:00:00Z"
+  }
+]
+```
+
+**Authorization:** OIDC session required (`admin` role).
+
+### Delete Organization Token
+
+```
+DELETE /api/orgs/{orgId}/tokens/{tokenId}
+```
+
+**Response:** `204 No Content`
+
+**Authorization:** OIDC session required (`admin` role).
 
 ---
 
