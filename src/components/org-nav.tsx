@@ -24,6 +24,7 @@ export function OrgNav() {
   if (role === "admin") {
     items.push(
       { value: "invites", label: "Invites", href: `${basePath}/invites` },
+      { value: "tokens", label: "Tokens", href: `${basePath}/tokens` },
       { value: "settings", label: "Settings", href: `${basePath}/settings` }
     );
   }
