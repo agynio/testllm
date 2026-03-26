@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import { deleteSuite } from "@/actions/suites";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
+import { ExportSuiteButton } from "@/components/export-suite-button";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,11 @@ export default async function SuiteDetailPage({
         description={suite.description ?? "No description provided."}
         actions={
           <div className="flex items-center gap-2">
+            <ExportSuiteButton
+              orgId={orgId}
+              suiteId={suiteId}
+              suiteName={suite.name}
+            />
             <Button variant="outline" asChild>
               <Link href={`/orgs/${orgId}/suites/${suiteId}/edit`}>Edit</Link>
             </Button>
