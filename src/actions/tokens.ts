@@ -61,7 +61,6 @@ export async function createPersonalToken(
     },
   });
 
-  revalidatePath("/settings/tokens");
   return { success: true, rawToken: token.rawToken };
 }
 
@@ -136,7 +135,6 @@ export async function createOrgToken(
     },
   });
 
-  revalidatePath(`/orgs/${orgId}/tokens`);
   return { success: true, rawToken: token.rawToken };
 }
 

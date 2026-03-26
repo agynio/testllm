@@ -350,6 +350,25 @@ describe("matchInput", () => {
     }
   });
 
+  it("returns sequence_exhausted when input crosses an output boundary", () => {
+    const sequence = [
+      messageItem(0, "user", "First"),
+      messageItem(1, "assistant", "Reply one"),
+      messageItem(2, "user", "Second"),
+      messageItem(3, "assistant", "Reply two"),
+    ];
+    const input = normalizeInput([
+      { role: "user", content: "First" },
+      { role: "user", content: "Second" },
+    ]);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(true);
+    if (isMatchError(result)) {
+      expect(result.code).toBe("sequence_exhausted");
+    }
+  });
+
   it("returns sequence_exhausted when input extends past sequence", () => {
     const sequence = [messageItem(0, "user", "Hello")];
     const input = normalizeInput([

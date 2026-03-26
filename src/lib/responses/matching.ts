@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type {
+  NormalizedInputFunctionCall,
   NormalizedInputItem,
+  NormalizedInputMessage,
   OutputTestItem,
   TestItemRecord,
 } from "@/lib/responses/types";
@@ -159,6 +161,17 @@ export function isOutputItem(item: TestItemRecord): item is OutputTestItem {
   return item.type === "message" && item.content.role === "assistant";
 }
 
+type OutputDirectionInputItem =
+  | NormalizedInputFunctionCall
+  | (NormalizedInputMessage & { role: "assistant" });
+
+function isOutputDirectionItem(
+  item: NormalizedInputItem
+): item is OutputDirectionInputItem {
+  if (item.type === "function_call") return true;
+  return item.type === "message" && item.role === "assistant";
+}
+
 function matchSegments(
   segments: Array<{ item: TestItemRecord; repeat: boolean }>,
   input: NormalizedInputItem[]
@@ -236,15 +249,22 @@ export function matchInput(
         matchBoundary = i;
         break;
       }
+      if (err.code !== "sequence_exhausted") {
+        return err;
+      }
+      const nextInput = input[segments.length];
+      if (!nextInput || !isOutputDirectionItem(nextInput)) {
+        return err;
+      }
       segments.push({ item, repeat: false });
-    } else {
-      const repeat =
-        item.type === "message" &&
-        item.content.any_role === true &&
-        item.content.any_content === true &&
-        item.content.repeat === true;
-      segments.push({ item, repeat });
+      continue;
     }
+    const repeat =
+      item.type === "message" &&
+      item.content.any_role === true &&
+      item.content.any_content === true &&
+      item.content.repeat === true;
+    segments.push({ item, repeat });
   }
 
   if (matchBoundary === -1) {
