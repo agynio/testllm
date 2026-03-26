@@ -28,6 +28,8 @@ export async function GET(
     return notFoundError("Test suite");
   }
 
+  const safeName = suite.name.replace(/[^a-zA-Z0-9_\-. ]/g, "_");
+
   const exportData = {
     version: 1,
     name: suite.name,
@@ -45,7 +47,7 @@ export async function GET(
   return new NextResponse(JSON.stringify(exportData, null, 2), {
     headers: {
       "Content-Type": "application/json",
-      "Content-Disposition": `attachment; filename="${suite.name}.json"`,
+      "Content-Disposition": `attachment; filename="${safeName}.json"; filename*=UTF-8''${encodeURIComponent(suite.name)}.json`,
     },
   });
 }
