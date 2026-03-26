@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useDeferredRefresh } from "@/hooks/use-deferred-refresh";
 import { EXPIRATION_OPTIONS } from "@/lib/token-constants";
 
 type ActionState = TokenCreateResult | null;
@@ -43,6 +44,7 @@ type CreateOrgTokenDialogProps = {
 };
 
 export function CreateOrgTokenDialog({ orgId }: CreateOrgTokenDialogProps) {
+  const { markForRefresh, flushRefresh } = useDeferredRefresh();
   const [open, setOpen] = React.useState(false);
   const [token, setToken] = React.useState<string | null>(null);
   const [expiresIn, setExpiresIn] = React.useState(DEFAULT_EXPIRATION);
@@ -59,6 +61,7 @@ export function CreateOrgTokenDialog({ orgId }: CreateOrgTokenDialogProps) {
     if (state.success && state !== previous.current) {
       setOpen(false);
       setToken(state.rawToken);
+      markForRefresh();
       formRef.current?.reset();
       setExpiresIn(DEFAULT_EXPIRATION);
       setRole(DEFAULT_ROLE);
@@ -72,7 +75,7 @@ export function CreateOrgTokenDialog({ orgId }: CreateOrgTokenDialogProps) {
       toast.error(error);
     }
     previous.current = state;
-  }, [state]);
+  }, [state, markForRefresh]);
 
   return (
     <>
@@ -148,7 +151,13 @@ export function CreateOrgTokenDialog({ orgId }: CreateOrgTokenDialogProps) {
           </form>
         </DialogContent>
       </Dialog>
-      <TokenRevealDialog token={token} onClose={() => setToken(null)} />
+      <TokenRevealDialog
+        token={token}
+        onClose={() => {
+          setToken(null);
+          flushRefresh();
+        }}
+      />
     </>
   );
 }

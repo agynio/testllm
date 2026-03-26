@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useDeferredRefresh } from "@/hooks/use-deferred-refresh";
 import { EXPIRATION_OPTIONS } from "@/lib/token-constants";
 
 type ActionState = TokenCreateResult | null;
@@ -33,6 +34,7 @@ type ActionState = TokenCreateResult | null;
 const DEFAULT_EXPIRATION = "30d";
 
 export function CreatePersonalTokenDialog() {
+  const { markForRefresh, flushRefresh } = useDeferredRefresh();
   const [open, setOpen] = React.useState(false);
   const [token, setToken] = React.useState<string | null>(null);
   const [expiresIn, setExpiresIn] = React.useState(DEFAULT_EXPIRATION);
@@ -51,6 +53,7 @@ export function CreatePersonalTokenDialog() {
     if (state.success && state !== previous.current) {
       setOpen(false);
       setToken(state.rawToken);
+      markForRefresh();
       formRef.current?.reset();
       setExpiresIn(DEFAULT_EXPIRATION);
     }
@@ -63,7 +66,7 @@ export function CreatePersonalTokenDialog() {
       toast.error(error);
     }
     previous.current = state;
-  }, [state]);
+  }, [state, markForRefresh]);
 
   return (
     <>
@@ -122,7 +125,13 @@ export function CreatePersonalTokenDialog() {
           </form>
         </DialogContent>
       </Dialog>
-      <TokenRevealDialog token={token} onClose={() => setToken(null)} />
+      <TokenRevealDialog
+        token={token}
+        onClose={() => {
+          setToken(null);
+          flushRefresh();
+        }}
+      />
     </>
   );
 }
