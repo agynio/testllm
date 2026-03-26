@@ -89,7 +89,8 @@ Token creation, listing, and deletion endpoints require an OIDC session. API tok
 
 | Capability | Session | Personal Token | Org Token |
 |------------|---------|----------------|-----------|
-| User-scoped endpoints (`/api/orgs`, `/api/invites/{token}/accept`) | ✅ | ✅ | ❌ (401) |
+| List organizations (`GET /api/orgs`) | ✅ | ✅ | ✅ (scoped org only) |
+| Accept invite (`/api/invites/{token}/accept`) | ✅ | ✅ | ❌ (401) |
 | Org-scoped endpoints (`/api/orgs/{orgId}/...`) | ✅ (membership) | ✅ (membership) | ✅ (org-bound) |
 | Admin-only org actions | ✅ admin | ✅ admin | ✅ role=admin |
 | Token management endpoints | ✅ | ❌ (403) | ❌ (403) |

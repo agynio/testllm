@@ -9,6 +9,19 @@ interface AuthUser {
   userId: string;
 }
 
+interface AuthUserIdentity {
+  kind: "user";
+  userId: string;
+}
+
+interface AuthOrgTokenIdentity {
+  kind: "org_token";
+  orgId: string;
+  role: OrgRole;
+}
+
+type AuthOrToken = AuthUserIdentity | AuthOrgTokenIdentity;
+
 interface AuthWithMembership {
   userId: string;
   membership: {
@@ -59,6 +72,27 @@ export async function getAuthUser(): Promise<AuthResult<AuthUser>> {
   }
 
   return { ok: true, value: { userId: token.userId } };
+}
+
+export async function getAuthOrToken(): Promise<AuthResult<AuthOrToken>> {
+  const session = await auth();
+  if (session?.user?.id) {
+    return { ok: true, value: { kind: "user", userId: session.user.id } };
+  }
+
+  const token = await resolveTokenIdentity();
+  if (!token) {
+    return { ok: false, error: unauthorizedError() };
+  }
+
+  if (token.kind === "personal_token") {
+    return { ok: true, value: { kind: "user", userId: token.userId } };
+  }
+
+  return {
+    ok: true,
+    value: { kind: "org_token", orgId: token.orgId, role: token.role },
+  };
 }
 
 export async function getAuthWithMembership(

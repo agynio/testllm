@@ -46,7 +46,9 @@ The authenticated user becomes the `admin` of the new organization.
 
 ### List Organizations
 
-Returns organizations the authenticated user is a member of.
+Returns organizations accessible to the caller. For session and personal token
+auth, returns all organizations the user is a member of. For org tokens,
+returns the single organization the token is scoped to.
 
 ```
 GET /api/orgs
