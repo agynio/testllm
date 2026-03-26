@@ -5,6 +5,7 @@ const InputMessageContentSchema = z.object({
   content: z.string(),
   any_role: z.boolean().optional(),
   any_content: z.boolean().optional(),
+  repeat: z.boolean().optional(),
 });
 
 const OutputMessageContentSchema = z.object({

@@ -3,6 +3,7 @@ export type MessageContent = {
   content: string;
   any_role?: boolean;
   any_content?: boolean;
+  repeat?: boolean;
 };
 
 export type FunctionCallContent = {
