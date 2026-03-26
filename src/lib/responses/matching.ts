@@ -51,6 +51,7 @@ const StoredMessageContentSchema = z.object({
   // Wildcards are only meaningful for input (non-assistant) messages.
   any_role: z.boolean().optional(),
   any_content: z.boolean().optional(),
+  repeat: z.boolean().optional(),
 });
 
 const StoredFunctionCallContentSchema = z.object({
@@ -158,51 +159,105 @@ export function isOutputItem(item: TestItemRecord): item is OutputTestItem {
   return item.type === "message" && item.content.role === "assistant";
 }
 
+function matchSegments(
+  segments: Array<{ item: TestItemRecord; repeat: boolean }>,
+  input: NormalizedInputItem[]
+): MatchError | null {
+  return matchRecursive(segments, 0, input, 0);
+}
+
+function matchRecursive(
+  segments: Array<{ item: TestItemRecord; repeat: boolean }>,
+  segIdx: number,
+  input: NormalizedInputItem[],
+  inputIdx: number
+): MatchError | null {
+  if (segIdx >= segments.length) {
+    return inputIdx === input.length
+      ? null
+      : {
+          status: 400,
+          message: "Input extends beyond the defined test sequence",
+          type: "invalid_request_error",
+          code: "sequence_exhausted",
+        };
+  }
+
+  const { item: expected, repeat } = segments[segIdx];
+
+  if (!repeat) {
+    if (inputIdx >= input.length) {
+      return {
+        status: 400,
+        message: `Input too short: expected more items at segment ${segIdx}`,
+        type: "invalid_request_error",
+        code: "input_mismatch",
+      };
+    }
+    const mismatch = compareItems(expected, input[inputIdx], inputIdx);
+    if (mismatch) return mismatch;
+    return matchRecursive(segments, segIdx + 1, input, inputIdx + 1);
+  }
+
+  const maxConsume = input.length - inputIdx;
+  for (let count = maxConsume; count >= 1; count--) {
+    let allMatch = true;
+    for (let j = 0; j < count; j++) {
+      if (compareItems(expected, input[inputIdx + j], inputIdx + j) !== null) {
+        allMatch = false;
+        break;
+      }
+    }
+    if (!allMatch) continue;
+    const rest = matchRecursive(segments, segIdx + 1, input, inputIdx + count);
+    if (rest === null) return null;
+  }
+
+  return {
+    status: 400,
+    message: `Repeat wildcard at segment ${segIdx} could not match`,
+    type: "invalid_request_error",
+    code: "input_mismatch",
+  };
+}
+
 export function matchInput(
   sequence: TestItemRecord[],
   input: NormalizedInputItem[]
 ): MatchResult {
-  const expectedItems: TestItemRecord[] = [];
+  const segments: Array<{ item: TestItemRecord; repeat: boolean }> = [];
   let matchBoundary = -1;
 
   for (let i = 0; i < sequence.length; i++) {
     const item = sequence[i];
-
     if (isOutputItem(item)) {
-      if (expectedItems.length === input.length) {
+      const err = matchSegments(segments, input);
+      if (err === null) {
         matchBoundary = i;
         break;
       }
-      expectedItems.push(item);
+      segments.push({ item, repeat: false });
     } else {
-      expectedItems.push(item);
+      const repeat =
+        item.type === "message" &&
+        item.content.any_role === true &&
+        item.content.any_content === true &&
+        item.content.repeat === true;
+      segments.push({ item, repeat });
     }
   }
 
   if (matchBoundary === -1) {
-    if (expectedItems.length <= input.length) {
-      return {
-        status: 400,
-        message: "Input extends beyond the defined test sequence",
-        type: "invalid_request_error",
-        code: "sequence_exhausted",
-      };
+    const err = matchSegments(segments, input);
+    if (err !== null) {
+      return err;
     }
     return {
       status: 400,
-      message:
-        `Input mismatch: expected ${expectedItems.length} input items ` +
-        `but got ${input.length}`,
+      message: "Input extends beyond the defined test sequence",
       type: "invalid_request_error",
-      code: "input_mismatch",
+      code: "sequence_exhausted",
     };
-  }
-
-  for (let i = 0; i < expectedItems.length; i++) {
-    const expected = expectedItems[i];
-    const actual = input[i];
-    const mismatch = compareItems(expected, actual, i);
-    if (mismatch) return mismatch;
   }
 
   const outputItems: OutputTestItem[] = [];

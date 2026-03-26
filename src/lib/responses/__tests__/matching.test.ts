@@ -14,7 +14,7 @@ const messageItem = (
   position: number,
   role: MessageRole,
   content: string,
-  options?: { any_role?: boolean; any_content?: boolean }
+  options?: { any_role?: boolean; any_content?: boolean; repeat?: boolean }
 ): TestItemRecord => ({
   id: `msg-${position}`,
   position,
@@ -237,6 +237,95 @@ describe("matchInput", () => {
     ];
     const input = normalizeInput([
       { role: "system", content: "Different content" },
+    ]);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(false);
+    if (!isMatchError(result)) {
+      expect(result.outputItems).toHaveLength(1);
+      expect(result.outputItems[0].type).toBe("message");
+    }
+  });
+
+  it("matches repeat wildcard absorbing multiple input items", () => {
+    const sequence = [
+      messageItem(0, "user", "Wildcard", {
+        any_role: true,
+        any_content: true,
+        repeat: true,
+      }),
+      messageItem(1, "user", "hi"),
+      messageItem(2, "assistant", "Output"),
+    ];
+    const input = normalizeInput([
+      { role: "system", content: "Environment context" },
+      { role: "user", content: "hi" },
+    ]);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(false);
+    if (!isMatchError(result)) {
+      expect(result.outputItems).toHaveLength(1);
+      expect(result.outputItems[0].type).toBe("message");
+    }
+  });
+
+  it("matches repeat wildcard absorbing many input items", () => {
+    const sequence = [
+      messageItem(0, "user", "Wildcard", {
+        any_role: true,
+        any_content: true,
+        repeat: true,
+      }),
+      messageItem(1, "user", "hi"),
+      messageItem(2, "assistant", "Output"),
+    ];
+    const input = normalizeInput([
+      { role: "developer", content: "Developer instructions" },
+      { role: "system", content: "Environment context" },
+      { role: "user", content: "agents.md" },
+      { role: "user", content: "hi" },
+    ]);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(false);
+    if (!isMatchError(result)) {
+      expect(result.outputItems).toHaveLength(1);
+      expect(result.outputItems[0].type).toBe("message");
+    }
+  });
+
+  it("repeat wildcard requires at least one match", () => {
+    const sequence = [
+      messageItem(0, "user", "Wildcard", {
+        any_role: true,
+        any_content: true,
+        repeat: true,
+      }),
+      messageItem(1, "user", "hi"),
+      messageItem(2, "assistant", "Output"),
+    ];
+    const input = normalizeInput([{ role: "user", content: "hi" }]);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(true);
+    if (isMatchError(result)) {
+      expect(result.code).toBe("input_mismatch");
+    }
+  });
+
+  it("non-repeat wildcards still match exactly one item", () => {
+    const sequence = [
+      messageItem(0, "user", "Wildcard", {
+        any_role: true,
+        any_content: true,
+      }),
+      messageItem(1, "user", "hi"),
+      messageItem(2, "assistant", "Output"),
+    ];
+    const input = normalizeInput([
+      { role: "system", content: "Environment context" },
+      { role: "user", content: "hi" },
     ]);
     const result = matchInput(sequence, input);
 

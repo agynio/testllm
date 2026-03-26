@@ -9,6 +9,7 @@ export interface MessageContent {
   // Wildcards are only meaningful for input (non-assistant) messages.
   any_role?: boolean;
   any_content?: boolean;
+  repeat?: boolean;
 }
 
 export interface FunctionCallContent {
