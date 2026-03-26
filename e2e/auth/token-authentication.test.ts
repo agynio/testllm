@@ -181,16 +181,17 @@ describe("token authentication", () => {
     expect(body.error).toMatchObject({ code: "not_found" });
   });
 
-  it("rejects org tokens for user-scoped operations", async () => {
+  it("allows org tokens to list their scoped org", async () => {
     const admin = await createTestUser();
     const { body: org } = await createOrg(admin, { uniqueSlug: true });
     const { body: token } = await createOrgToken(admin, org.id);
 
     const response = await tokenFetch(managementUrl("/orgs"), token.token);
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.error).toMatchObject({ code: "unauthorized" });
+    expect(body).toHaveLength(1);
+    expect(body[0]).toMatchObject({ id: org.id });
   });
 
   it("rejects invite acceptance with org tokens", async () => {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import { getAuthUser, getAuthOrToken } from "@/lib/auth-helpers";
 import { parseRequestBody } from "@/lib/validation";
 import { conflictError } from "@/lib/errors";
 import { CreateOrgSchema } from "@/lib/schemas/orgs";
@@ -51,9 +51,29 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  const authResult = await getAuthUser();
+  const authResult = await getAuthOrToken();
   if (!authResult.ok) return authResult.error;
-  const { userId } = authResult.value;
+  const identity = authResult.value;
+
+  if (identity.kind === "org_token") {
+    const org = await prisma.organization.findUnique({
+      where: { id: identity.orgId },
+    });
+    if (!org) return NextResponse.json([]);
+
+    return NextResponse.json([
+      {
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+        role: identity.role,
+        created_at: org.createdAt.toISOString(),
+        updated_at: org.updatedAt.toISOString(),
+      },
+    ]);
+  }
+
+  const { userId } = identity;
 
   const memberships = await prisma.orgMembership.findMany({
     where: { userId },

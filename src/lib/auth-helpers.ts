@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { resolveTokenIdentity } from "@/lib/token-auth";
+import { resolveTokenIdentity, OrgTokenIdentity } from "@/lib/token-auth";
 import { unauthorizedError, forbiddenError, notFoundError } from "@/lib/errors";
 import { NextResponse } from "next/server";
 import { OrgRole } from "@prisma/client";
@@ -8,6 +8,13 @@ import { OrgRole } from "@prisma/client";
 interface AuthUser {
   userId: string;
 }
+
+interface AuthUserIdentity {
+  kind: "user";
+  userId: string;
+}
+
+type AuthOrTokenIdentity = AuthUserIdentity | OrgTokenIdentity;
 
 interface AuthWithMembership {
   userId: string;
@@ -59,6 +66,24 @@ export async function getAuthUser(): Promise<AuthResult<AuthUser>> {
   }
 
   return { ok: true, value: { userId: token.userId } };
+}
+
+export async function getAuthOrToken(): Promise<AuthResult<AuthOrTokenIdentity>> {
+  const session = await auth();
+  if (session?.user?.id) {
+    return { ok: true, value: { kind: "user", userId: session.user.id } };
+  }
+
+  const token = await resolveTokenIdentity();
+  if (!token) {
+    return { ok: false, error: unauthorizedError() };
+  }
+
+  if (token.kind === "personal_token") {
+    return { ok: true, value: { kind: "user", userId: token.userId } };
+  }
+
+  return { ok: true, value: token };
 }
 
 export async function getAuthWithMembership(
