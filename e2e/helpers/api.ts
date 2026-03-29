@@ -18,6 +18,19 @@ export function responsesUrl(orgSlug: string, suiteName: string) {
   return apiUrl(`/v1/org/${orgSlug}/suite/${suiteName}/responses`);
 }
 
+export function responsesRunUrl(
+  orgSlug: string,
+  suiteName: string,
+  runId: string,
+  clientTestName: string
+) {
+  return apiUrl(
+    `/v1/org/${orgSlug}/suite/${suiteName}/run/${runId}/test/${encodeURIComponent(
+      clientTestName
+    )}/responses`
+  );
+}
+
 export function jsonRequest(body: unknown): RequestInit {
   return {
     headers: {

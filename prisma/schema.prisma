@@ -19,6 +19,11 @@ enum TestItemType {
   function_call_output
 }
 
+enum ResponseLogStatus {
+  success
+  error
+}
+
 // ─── Models ──────────────────────────────────────────────
 
 model Organization {
@@ -32,6 +37,7 @@ model Organization {
   invites     Invite[]
   orgTokens   OrgApiToken[]
   testSuites  TestSuite[]
+  testRuns    TestRun[]
 
   @@map("organizations")
 }
@@ -116,6 +122,7 @@ model TestSuite {
 
   org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   tests Test[]
+  responseLogs ResponseLog[]
 
   @@unique([orgId, name])
   @@map("test_suites")
@@ -131,6 +138,7 @@ model Test {
 
   testSuite TestSuite  @relation(fields: [testSuiteId], references: [id], onDelete: Cascade)
   items     TestItem[]
+  responseLogs ResponseLog[]
 
   @@unique([testSuiteId, name])
   @@map("tests")
@@ -149,4 +157,50 @@ model TestItem {
   @@unique([testId, position])
   @@index([testId, position])
   @@map("test_items")
+}
+
+model TestRun {
+  id        String   @id @db.Uuid
+  orgId     String   @map("org_id") @db.Uuid
+  name      String?
+  commitSha String?  @map("commit_sha")
+  branch    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  responseLogs ResponseLog[]
+
+  @@index([orgId, createdAt])
+  @@map("test_runs")
+}
+
+model ResponseLog {
+  id             String            @id @default(uuid()) @db.Uuid
+  runId          String            @map("run_id") @db.Uuid
+  status         ResponseLogStatus
+  orgSlug        String            @map("org_slug")
+  suiteName      String            @map("suite_name")
+  model          String
+  clientTestName String            @map("client_test_name")
+  input          Json
+  stream         Boolean           @default(false)
+  suiteId        String?           @map("suite_id") @db.Uuid
+  testId         String?           @map("test_id") @db.Uuid
+  output         Json?
+  responseId     String?           @map("response_id")
+  errorCode      String?           @map("error_code")
+  errorMessage   String?           @map("error_message")
+  durationMs     Int               @map("duration_ms")
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  run   TestRun    @relation(fields: [runId], references: [id], onDelete: Cascade)
+  suite TestSuite? @relation(fields: [suiteId], references: [id], onDelete: SetNull)
+  test  Test?      @relation(fields: [testId], references: [id], onDelete: SetNull)
+
+  @@index([runId, createdAt])
+  @@index([runId, clientTestName])
+  @@index([runId, testId])
+  @@index([suiteId, createdAt])
+  @@index([testId, createdAt])
+  @@map("response_logs")
 }
