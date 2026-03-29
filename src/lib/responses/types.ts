@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 export type TestItemType = "message" | "function_call" | "function_call_output";
 
 export type InputMessageRole = "user" | "system" | "developer";
@@ -81,13 +83,13 @@ export type NormalizedInputItem =
   | NormalizedInputFunctionCall
   | NormalizedInputFunctionCallOutput;
 
-export interface OutputTextContentPart {
+export interface OutputTextContentPart extends Prisma.InputJsonObject {
   type: "output_text";
   text: string;
   annotations: [];
 }
 
-export interface OpenAIOutputMessage {
+export interface OpenAIOutputMessage extends Prisma.InputJsonObject {
   id: string;
   type: "message";
   role: "assistant";
@@ -95,7 +97,7 @@ export interface OpenAIOutputMessage {
   content: OutputTextContentPart[];
 }
 
-export interface OpenAIOutputFunctionCall {
+export interface OpenAIOutputFunctionCall extends Prisma.InputJsonObject {
   id: string;
   type: "function_call";
   call_id: string;
@@ -108,7 +110,7 @@ export type OpenAIOutputItem =
   | OpenAIOutputMessage
   | OpenAIOutputFunctionCall;
 
-export interface OpenAIResponse {
+export interface OpenAIResponse extends Prisma.InputJsonObject {
   id: string;
   object: "response";
   created_at: number;
@@ -117,13 +119,13 @@ export interface OpenAIResponse {
   status: "completed";
 }
 
-export interface OpenAIUsage {
+export interface OpenAIUsage extends Prisma.InputJsonObject {
   input_tokens: number;
   output_tokens: number;
   total_tokens: number;
 }
 
-export interface OpenAIResponseInProgress {
+export interface OpenAIResponseInProgress extends Prisma.InputJsonObject {
   id: string;
   object: "response";
   created_at: number;
@@ -133,7 +135,7 @@ export interface OpenAIResponseInProgress {
   usage: null;
 }
 
-export interface OpenAIResponseCompleted {
+export interface OpenAIResponseCompleted extends Prisma.InputJsonObject {
   id: string;
   object: "response";
   created_at: number;

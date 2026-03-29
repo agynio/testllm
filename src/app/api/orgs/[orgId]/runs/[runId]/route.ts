@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ResponseLogStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAuthWithMembership } from "@/lib/auth-helpers";
@@ -62,9 +63,9 @@ export async function GET(
         suitesUsed: new Set([log.suiteName]),
         startedAt: log.createdAt,
         finishedAt: log.createdAt,
-        hasError: log.status === "error",
+        hasError: log.status === ResponseLogStatus.error,
         firstError:
-          log.status === "error"
+          log.status === ResponseLogStatus.error
             ? { code: log.errorCode, message: log.errorMessage }
             : null,
       });
@@ -74,7 +75,7 @@ export async function GET(
     existing.callCount += 1;
     existing.suitesUsed.add(log.suiteName);
     existing.finishedAt = log.createdAt;
-    if (log.status === "error" && !existing.hasError) {
+    if (log.status === ResponseLogStatus.error && !existing.hasError) {
       existing.hasError = true;
       existing.firstError = { code: log.errorCode, message: log.errorMessage };
     }

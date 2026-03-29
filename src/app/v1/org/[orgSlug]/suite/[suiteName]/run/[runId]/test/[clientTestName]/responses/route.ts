@@ -66,7 +66,10 @@ function parseRunParams(runId: string, clientTestName: string): RunParamParseRes
     };
   }
 
-  return { ok: true, data: { runId: runIdResult.data, clientTestName: decodedName } };
+  return {
+    ok: true,
+    data: { runId: runIdResult.data, clientTestName: trimmedName },
+  };
 }
 
 async function ensureTestRun(runId: string, orgId: string) {
@@ -181,9 +184,7 @@ export async function POST(
     matchResult.outputItems,
     metadata
   );
-  const outputPayload: Prisma.InputJsonValue = JSON.parse(
-    JSON.stringify(responsePayload)
-  );
+  const outputPayload: Prisma.InputJsonValue = responsePayload;
 
   recordResponseLog({
     runId: runParams.data.runId,
