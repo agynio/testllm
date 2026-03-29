@@ -9,6 +9,18 @@ import type {
   SSEEvent,
 } from "@/lib/responses/types";
 
+export type ResponseMetadata = {
+  responseId: string;
+  createdAt: number;
+};
+
+export function createResponseMetadata(): ResponseMetadata {
+  return {
+    responseId: `resp_${randomUUID()}`,
+    createdAt: Math.floor(Date.now() / 1000),
+  };
+}
+
 function outputTextPart(text: string): OutputTextContentPart {
   return {
     type: "output_text",
@@ -40,12 +52,13 @@ export function formatOutputItem(item: OutputTestItem): OpenAIOutputItem {
 
 export function formatResponse(
   model: string,
-  outputItems: OutputTestItem[]
+  outputItems: OutputTestItem[],
+  metadata: ResponseMetadata = createResponseMetadata()
 ): OpenAIResponse {
   return {
-    id: `resp_${randomUUID()}`,
+    id: metadata.responseId,
     object: "response",
-    created_at: Math.floor(Date.now() / 1000),
+    created_at: metadata.createdAt,
     model,
     output: outputItems.map(formatOutputItem),
     status: "completed",
@@ -54,10 +67,11 @@ export function formatResponse(
 
 export function formatSSEStream(
   model: string,
-  outputItems: OutputTestItem[]
+  outputItems: OutputTestItem[],
+  metadata: ResponseMetadata = createResponseMetadata()
 ): ReadableStream<Uint8Array> {
-  const responseId = `resp_${randomUUID()}`;
-  const createdAt = Math.floor(Date.now() / 1000);
+  const responseId = metadata.responseId;
+  const createdAt = metadata.createdAt;
   const events: SSEEvent[] = [];
   const completedOutput: OpenAIOutputItem[] = [];
   let sequenceNumber = 0;
