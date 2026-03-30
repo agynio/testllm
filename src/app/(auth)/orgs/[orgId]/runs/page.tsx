@@ -1,8 +1,17 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { CopyButton } from "@/components/copy-button";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { RelativeTime } from "@/components/relative-time";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -67,12 +76,21 @@ export default async function RunsPage({
   const resolvedSearchParams = await searchParams;
   const cursorParam = parseCursorParam(resolvedSearchParams?.cursor);
 
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { slug: true },
+  });
+  if (!org) {
+    notFound();
+  }
+
   const { pageRuns: runs, nextCursor } = await fetchRunPage(
     orgId,
     cursorParam
   );
   const summaries = await buildRunSummaries(runs.map((run) => run.id));
   const placeholder = "\u2014";
+  const endpoint = `https://testllm.dev/v1/org/${org.slug}/suite/{suiteName}/run/{runId}/test/{clientTestName}/responses`;
 
   return (
     <div className="space-y-6">
@@ -178,6 +196,24 @@ export default async function RunsPage({
           ) : null}
         </div>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Run Tracking Endpoint</CardTitle>
+          <CardDescription>
+            Use this URL to track test executions during a run. Replace the
+            standard suite endpoint when you want to capture run results.
+            {`{runId}`} should be a UUID generated per CI execution, and
+            {`{clientTestName}`} identifies the E2E test being executed.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3">
+          <code className="rounded bg-muted px-2 py-1 text-sm font-mono">
+            {endpoint}
+          </code>
+          <CopyButton value={endpoint} showLabel />
+        </CardContent>
+      </Card>
     </div>
   );
 }
