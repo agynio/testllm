@@ -18,6 +18,7 @@ export function OrgNav() {
 
   const items: NavItem[] = [
     { value: "suites", label: "Suites", href: `${basePath}/suites` },
+    { value: "runs", label: "Runs", href: `${basePath}/runs` },
     { value: "members", label: "Members", href: `${basePath}/members` },
   ];
 
