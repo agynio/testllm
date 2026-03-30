@@ -46,6 +46,8 @@ After authentication, authorization is based on organization membership and role
 | Update/delete organization | `admin` |
 | CRUD test suites and tests | `admin` or `member` |
 | Read test suites and tests | `admin` or `member` |
+| Read test runs and response logs | `admin` or `member` |
+| Update test run metadata | `admin` or `member` |
 
 Users who are not members of an organization cannot access any of its resources.
 
@@ -99,6 +101,11 @@ Org tokens are only valid for their assigned organization. Requests to other org
 
 ## Responses API
 
-The Responses API (`/v1/org/{orgSlug}/suite/{suiteName}/responses`) requires **no authentication**. It is designed to be called by agents through the LLM service proxy, which injects a Bearer token from the LLM Provider configuration. TestLLM ignores any `Authorization` header on this endpoint.
+Both Responses API paths require **no authentication**:
+
+- Standard path: `POST /v1/org/{orgSlug}/suite/{suiteName}/responses`
+- Run-tracking path: `POST /v1/org/{orgSlug}/suite/{suiteName}/run/{runId}/test/{clientTestName}/responses`
+
+They are designed to be called by agents through the LLM service proxy, which injects a Bearer token from the LLM Provider configuration. TestLLM ignores any `Authorization` header on these endpoints.
 
 This simplifies integration — the LLM Provider resource can be configured with any token value (or an empty string), and TestLLM will accept the request regardless.
