@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ResponseLogStatus } from "@prisma/client";
 import { Check, ChevronLeft, X } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
@@ -15,16 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { prisma } from "@/lib/prisma";
-
-type TestExecutionSummary = {
-  clientTestName: string;
-  callCount: number;
-  suitesUsed: Set<string>;
-  startedAt: Date;
-  finishedAt: Date;
-  hasError: boolean;
-  firstError: { code: string | null; message: string | null } | null;
-};
+import { buildTestExecutionSummaries } from "@/lib/run-helpers";
 
 function formatCommitSha(commitSha: string) {
   return commitSha.length > 7 ? commitSha.slice(0, 7) : commitSha;
@@ -56,40 +46,8 @@ export default async function RunDetailPage({
     },
   });
 
-  const summaries = new Map<string, TestExecutionSummary>();
-  for (const log of logs) {
-    const existing = summaries.get(log.clientTestName);
-    if (!existing) {
-      summaries.set(log.clientTestName, {
-        clientTestName: log.clientTestName,
-        callCount: 1,
-        suitesUsed: new Set([log.suiteName]),
-        startedAt: log.createdAt,
-        finishedAt: log.createdAt,
-        hasError: log.status === ResponseLogStatus.error,
-        firstError:
-          log.status === ResponseLogStatus.error
-            ? { code: log.errorCode, message: log.errorMessage }
-            : null,
-      });
-      continue;
-    }
-
-    existing.callCount += 1;
-    existing.suitesUsed.add(log.suiteName);
-    existing.finishedAt = log.createdAt;
-    if (log.status === ResponseLogStatus.error && !existing.hasError) {
-      existing.hasError = true;
-      existing.firstError = { code: log.errorCode, message: log.errorMessage };
-    }
-  }
-
-  const executionList = Array.from(summaries.values()).sort(
-    (a, b) => a.startedAt.getTime() - b.startedAt.getTime()
-  );
-  const testsTotal = executionList.length;
-  const testsFailed = executionList.filter((item) => item.hasError).length;
-  const testsPassed = testsTotal - testsFailed;
+  const { executionList, testsTotal, testsFailed, testsPassed } =
+    buildTestExecutionSummaries(logs);
   const placeholder = "\u2014";
 
   const metadataParts = [] as string[];

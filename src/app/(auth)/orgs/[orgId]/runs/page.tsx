@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { ResponseLogStatus } from "@prisma/client";
-import { z } from "zod";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { RelativeTime } from "@/components/relative-time";
@@ -13,19 +11,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { parseCursorParam } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
+import { buildRunSummaries } from "@/lib/run-helpers";
 
 const PAGE_SIZE = 20;
-const CursorSchema = z.string().uuid();
 
 type RunsSearchParams = {
   cursor?: string | string[];
-};
-
-type RunSummary = {
-  tests: Map<string, { hasError: boolean }>;
-  startedAt: Date | null;
-  finishedAt: Date | null;
 };
 
 function formatDuration(durationMs: number) {
@@ -39,14 +32,6 @@ function formatDuration(durationMs: number) {
   if (hours > 0) return `${hours}h ${remainingMinutes}m`;
   if (minutes > 0) return `${minutes}m ${remainingSeconds}s`;
   return `${totalSeconds}s`;
-}
-
-function parseCursorParam(searchParams?: RunsSearchParams) {
-  const value = searchParams?.cursor;
-  const cursor = Array.isArray(value) ? value[0] : value;
-  if (!cursor) return undefined;
-  const parsed = CursorSchema.safeParse(cursor.trim());
-  return parsed.success ? parsed.data : undefined;
 }
 
 async function fetchRunPage(orgId: string, cursor?: string) {
@@ -66,71 +51,6 @@ async function fetchRunPage(orgId: string, cursor?: string) {
   return { pageRuns, nextCursor };
 }
 
-async function loadRuns(orgId: string, cursorParam?: string) {
-  const runs = [] as Awaited<ReturnType<typeof fetchRunPage>>["pageRuns"];
-  let cursor: string | undefined;
-  let nextCursor: string | null = null;
-
-  while (true) {
-    const page = await fetchRunPage(orgId, cursor);
-    runs.push(...page.pageRuns);
-    nextCursor = page.nextCursor;
-
-    if (!cursorParam) break;
-    if (cursor === cursorParam) break;
-    if (!page.nextCursor) break;
-    cursor = page.nextCursor;
-  }
-
-  return { runs, nextCursor };
-}
-
-async function buildRunSummaries(runIds: string[]) {
-  const summaries = new Map<string, RunSummary>();
-  if (runIds.length === 0) return summaries;
-
-  const groups = await prisma.responseLog.groupBy({
-    by: ["runId", "clientTestName", "status"],
-    where: { runId: { in: runIds } },
-    _min: { createdAt: true },
-    _max: { createdAt: true },
-  });
-
-  for (const group of groups) {
-    const startedAt = group._min.createdAt;
-    const finishedAt = group._max.createdAt;
-    if (!startedAt || !finishedAt) {
-      throw new Error("Response log timestamps missing from summary");
-    }
-
-    const summary = summaries.get(group.runId) ?? {
-      tests: new Map(),
-      startedAt: null,
-      finishedAt: null,
-    };
-
-    const testSummary = summary.tests.get(group.clientTestName) ?? {
-      hasError: false,
-    };
-
-    if (group.status === ResponseLogStatus.error) {
-      testSummary.hasError = true;
-    }
-    summary.tests.set(group.clientTestName, testSummary);
-
-    if (!summary.startedAt || startedAt < summary.startedAt) {
-      summary.startedAt = startedAt;
-    }
-    if (!summary.finishedAt || finishedAt > summary.finishedAt) {
-      summary.finishedAt = finishedAt;
-    }
-
-    summaries.set(group.runId, summary);
-  }
-
-  return summaries;
-}
-
 function buildRunsHref(orgId: string, cursor: string) {
   const params = new URLSearchParams({ cursor });
   return `/orgs/${orgId}/runs?${params.toString()}`;
@@ -145,9 +65,12 @@ export default async function RunsPage({
 }) {
   const { orgId } = await params;
   const resolvedSearchParams = await searchParams;
-  const cursorParam = parseCursorParam(resolvedSearchParams);
+  const cursorParam = parseCursorParam(resolvedSearchParams?.cursor);
 
-  const { runs, nextCursor } = await loadRuns(orgId, cursorParam);
+  const { pageRuns: runs, nextCursor } = await fetchRunPage(
+    orgId,
+    cursorParam
+  );
   const summaries = await buildRunSummaries(runs.map((run) => run.id));
   const placeholder = "\u2014";
 

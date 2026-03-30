@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { z } from "zod";
 import { ChevronLeft } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
@@ -15,23 +14,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { parseCursorParam } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 
 const PAGE_SIZE = 50;
-const CursorSchema = z.string().uuid();
 
 type LogsSearchParams = {
   cursor?: string | string[];
   client_test_name?: string | string[];
 };
-
-function parseCursorParam(searchParams?: LogsSearchParams) {
-  const value = searchParams?.cursor;
-  const cursor = Array.isArray(value) ? value[0] : value;
-  if (!cursor) return undefined;
-  const parsed = CursorSchema.safeParse(cursor.trim());
-  return parsed.success ? parsed.data : undefined;
-}
 
 function parseClientTestName(searchParams?: LogsSearchParams) {
   const value = searchParams?.client_test_name;
@@ -62,29 +53,6 @@ async function fetchLogsPage(
   return { pageLogs, nextCursor };
 }
 
-async function loadLogs(
-  runId: string,
-  clientTestName: string | undefined,
-  cursorParam?: string
-) {
-  const logs = [] as Awaited<ReturnType<typeof fetchLogsPage>>["pageLogs"];
-  let cursor: string | undefined;
-  let nextCursor: string | null = null;
-
-  while (true) {
-    const page = await fetchLogsPage(runId, clientTestName, cursor);
-    logs.push(...page.pageLogs);
-    nextCursor = page.nextCursor;
-
-    if (!cursorParam) break;
-    if (cursor === cursorParam) break;
-    if (!page.nextCursor) break;
-    cursor = page.nextCursor;
-  }
-
-  return { logs, nextCursor };
-}
-
 function buildLogsHref(
   orgId: string,
   runId: string,
@@ -107,7 +75,7 @@ export default async function RunLogsPage({
 }) {
   const { orgId, runId } = await params;
   const resolvedSearchParams = await searchParams;
-  const cursorParam = parseCursorParam(resolvedSearchParams);
+  const cursorParam = parseCursorParam(resolvedSearchParams?.cursor);
   const clientTestName = parseClientTestName(resolvedSearchParams);
 
   const run = await prisma.testRun.findUnique({ where: { id: runId } });
@@ -115,7 +83,7 @@ export default async function RunLogsPage({
     notFound();
   }
 
-  const { logs, nextCursor } = await loadLogs(
+  const { pageLogs: logs, nextCursor } = await fetchLogsPage(
     runId,
     clientTestName,
     cursorParam
