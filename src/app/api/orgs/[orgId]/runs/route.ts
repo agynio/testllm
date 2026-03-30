@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ResponseLogStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAuthWithMembership } from "@/lib/auth-helpers";
+import { buildRunSummaries } from "@/lib/run-helpers";
 import { parseBody } from "@/lib/validation";
 
 const ListRunsQuerySchema = z.object({
@@ -15,56 +15,6 @@ const ListRunsQuerySchema = z.object({
     .optional(),
 });
 
-type RunSummary = {
-  tests: Map<string, { hasError: boolean }>;
-  startedAt: Date | null;
-  finishedAt: Date | null;
-};
-
-async function buildRunSummaries(runIds: string[]) {
-  const summaries = new Map<string, RunSummary>();
-  if (runIds.length === 0) return summaries;
-
-  const groups = await prisma.responseLog.groupBy({
-    by: ["runId", "clientTestName", "status"],
-    where: { runId: { in: runIds } },
-    _min: { createdAt: true },
-    _max: { createdAt: true },
-  });
-
-  for (const group of groups) {
-    const startedAt = group._min.createdAt;
-    const finishedAt = group._max.createdAt;
-    if (!startedAt || !finishedAt) {
-      throw new Error("Response log timestamps missing from summary");
-    }
-
-    const summary = summaries.get(group.runId) ?? {
-      tests: new Map(),
-      startedAt: null,
-      finishedAt: null,
-    };
-
-    const testSummary = summary.tests.get(group.clientTestName) ?? {
-      hasError: false,
-    };
-    if (group.status === ResponseLogStatus.error) {
-      testSummary.hasError = true;
-    }
-    summary.tests.set(group.clientTestName, testSummary);
-
-    if (!summary.startedAt || startedAt < summary.startedAt) {
-      summary.startedAt = startedAt;
-    }
-    if (!summary.finishedAt || finishedAt > summary.finishedAt) {
-      summary.finishedAt = finishedAt;
-    }
-
-    summaries.set(group.runId, summary);
-  }
-
-  return summaries;
-}
 
 function parseListParams(request: NextRequest) {
   const { searchParams } = request.nextUrl;
