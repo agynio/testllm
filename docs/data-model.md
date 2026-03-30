@@ -8,10 +8,14 @@ erDiagram
     Organization ||--o{ Invite : has
     Organization ||--o{ OrgApiToken : has
     Organization ||--o{ TestSuite : contains
+    Organization ||--o{ TestRun : contains
     User ||--o{ OrgMembership : has
     User ||--o{ PersonalApiToken : has
     TestSuite ||--o{ Test : contains
+    TestSuite ||--o{ ResponseLog : referenced_by
     Test ||--o{ TestItem : contains
+    Test ||--o{ ResponseLog : referenced_by
+    TestRun ||--o{ ResponseLog : contains
 
     Organization {
         uuid id PK
@@ -92,6 +96,35 @@ erDiagram
         int position
         string type
         jsonb content
+        timestamp created_at
+    }
+
+    TestRun {
+        uuid id PK
+        uuid org_id FK
+        string name
+        string commit_sha
+        string branch
+        timestamp created_at
+    }
+
+    ResponseLog {
+        uuid id PK
+        uuid run_id FK
+        enum status
+        string org_slug
+        string suite_name
+        string model
+        string client_test_name
+        jsonb input
+        boolean stream
+        uuid suite_id FK
+        uuid test_id FK
+        jsonb output
+        string response_id
+        string error_code
+        string error_message
+        int duration_ms
         timestamp created_at
     }
 ```
@@ -232,6 +265,75 @@ A single item in a test's conversation sequence. Items are ordered by `position`
 **Constraints:**
 - Unique on `(test_id, position)` — no duplicate positions within a test.
 - `position` values are contiguous starting from 0.
+
+### TestRun
+
+A container for a single CI/test execution. Groups all Responses API calls made during one run. Test runs are scoped to an organization.
+
+The run ID is **client-generated** — the caller provides a UUID when making Responses API calls on the run-tracking path. The TestRun record is created lazily on the first call that references it.
+
+TestRun has no status or lifecycle fields. Duration and timing are derived from the timestamps of the associated response logs.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key (client-generated) |
+| `org_id` | UUID | FK → Organization |
+| `name` | string | Optional display name (set via Management API) |
+| `commit_sha` | string | Optional Git commit SHA (set via Management API) |
+| `branch` | string | Optional Git branch name (set via Management API) |
+| `created_at` | timestamp | Creation time |
+
+**Indexes:**
+- `(org_id, created_at)` — efficient listing of runs by organization.
+
+### ResponseLog
+
+Records a single Responses API call attributed to a test run. Created via fire-and-forget after each Responses API request on the run-tracking path.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `run_id` | UUID | FK → TestRun |
+| `status` | enum | `success` or `error` |
+| `org_slug` | string | Organization slug from the request path |
+| `suite_name` | string | Test suite name from the request path |
+| `model` | string | Model (test name) from the request body |
+| `client_test_name` | string | Client-provided test identifier from the request path |
+| `input` | jsonb | The full `input` from the request body |
+| `stream` | boolean | Whether streaming was requested (default `false`) |
+| `suite_id` | UUID | FK → TestSuite (nullable). Set when the suite was resolved successfully. `NULL` if suite not found. Set to `NULL` on suite deletion (`onDelete: SetNull`). |
+| `test_id` | UUID | FK → Test (nullable). Set when the test (model) was resolved successfully. `NULL` if test not found. Set to `NULL` on test deletion (`onDelete: SetNull`). |
+| `output` | jsonb | The full response payload on success. `NULL` on error. |
+| `response_id` | string | The `id` field from the response payload. `NULL` on error. |
+| `error_code` | string | Error code on failure (e.g., `suite_not_found`, `input_mismatch`). `NULL` on success. |
+| `error_message` | string | Error message on failure. `NULL` on success. |
+| `duration_ms` | integer | Time spent on the matching logic in milliseconds |
+| `created_at` | timestamp | Creation time |
+
+**Indexes:**
+- `(run_id, created_at)` — list logs by run in chronological order.
+- `(run_id, client_test_name)` — filter logs by client test name within a run.
+- `(run_id, test_id)` — filter logs by resolved test within a run.
+- `(suite_id, created_at)` — list logs by suite.
+- `(test_id, created_at)` — list logs by test.
+
+**Status values:**
+
+| Value | Meaning |
+|-------|---------|
+| `success` | Input matched, response returned successfully |
+| `error` | Resolution failed (suite not found, model not found, input mismatch, sequence exhausted) |
+
+### Test Executions (Query-Time Concept)
+
+A "test execution" is not a database entity. It is a **query-time grouping** of response logs by `client_test_name` within a test run.
+
+- A test execution is **passed** if every response log with that `(run_id, client_test_name)` has `status = 'success'`.
+- A test execution is **failed** if any response log has `status = 'error'`.
+- `tests_total` = count of distinct `client_test_name` values in the run.
+- `tests_passed` / `tests_failed` = derived from the above rule.
+
+This design allows a single TestLLM test (conversation sequence) to be reused by multiple client-side tests, each identified by a unique `client_test_name`.
 
 ## Item Types
 

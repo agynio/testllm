@@ -206,3 +206,93 @@ flowchart LR
     TL -->|scripted response| LLM
     LLM -->|response| A
 ```
+
+## Run-Tracking Path
+
+TestLLM provides an alternative Responses API path that tracks calls within a test run. This path uses the same matching logic as the standard endpoint but additionally creates a test run (lazily) and records every call as a response log.
+
+### Endpoint
+
+```
+POST /v1/org/{orgSlug}/suite/{suiteName}/run/{runId}/test/{clientTestName}/responses
+```
+
+| Path Parameter | Type | Description |
+|---------------|------|-------------|
+| `orgSlug` | string | Organization slug |
+| `suiteName` | string | Test suite name |
+| `runId` | string (UUID) | Client-generated run identifier. Must be a valid UUID. |
+| `clientTestName` | string | Client-side test name. Identifies which test in the caller's test suite is making the call. URL-encoded. |
+
+**Authentication:** None. Same as the standard Responses API path.
+
+### Request
+
+The request body is identical to the [standard Responses API request](#request). The `model` and `input` fields are used for matching; all other fields are accepted but ignored.
+
+### Behavior
+
+On each request, the run-tracking path:
+
+1. **Validates path parameters** — `runId` must be a valid UUID; `clientTestName` must be non-empty after URL decoding. Invalid parameters return a `400` error in OpenAI format.
+2. **Resolves the organization** — looks up the organization by `orgSlug`. If not found, returns `404` (no log is created).
+3. **Ensures the test run exists** — attempts to create a `TestRun` with the given `runId` and the resolved `org_id`. If the run already exists (unique constraint conflict), verifies the existing run belongs to the same organization. If the org doesn't match, returns `404`.
+4. **Executes standard matching** — the same matching algorithm as the standard path (resolve suite → resolve test → match input → return output).
+5. **Records a response log** — after matching completes (success or failure), a `ResponseLog` is created via fire-and-forget (non-blocking, failures are logged to console but do not affect the response).
+6. **Returns the response** — identical response format to the standard path.
+
+### Lazy TestRun Creation
+
+The TestRun record is created on the first Responses API call that references the `runId`. Subsequent calls with the same `runId` reuse the existing record. The caller generates the UUID — this allows the CI runner to generate a run ID upfront and pass it to all test cases.
+
+The TestRun is created with only `id` and `org_id`. Optional metadata (`name`, `commit_sha`, `branch`) can be set later via the Management API `PATCH /api/orgs/{orgId}/runs/{runId}` endpoint.
+
+### Recording Rules
+
+A response log is created when **all** of the following conditions are met:
+
+1. The request is on the run-tracking path.
+2. `runId` is a valid UUID.
+3. `clientTestName` is non-empty after URL decoding.
+4. The organization exists.
+5. The TestRun upsert succeeded (org matches).
+6. The request body passes JSON and schema validation (valid `model` and `input`).
+
+If any of these preconditions fail, no log is recorded — the endpoint returns an error directly.
+
+### What Gets Recorded
+
+| Outcome | Fields populated | Error fields |
+|---------|-----------------|-------------|
+| **Success** (input matched) | `suite_id`, `test_id`, `output`, `response_id` | `NULL` |
+| **Suite not found** | `suite_id` = `NULL`, `test_id` = `NULL` | `error_code`, `error_message` set |
+| **Model not found** | `suite_id` set, `test_id` = `NULL` | `error_code`, `error_message` set |
+| **Input mismatch / sequence exhausted** | `suite_id` set, `test_id` set | `error_code`, `error_message` set |
+
+### Response
+
+The response format is identical to the [standard Responses API](#response) — both for success and error cases. The caller cannot distinguish between the two paths from the response alone.
+
+### Backward Compatibility
+
+The standard path (`POST /v1/org/{orgSlug}/suite/{suiteName}/responses`) is unchanged. It performs no logging and requires no run ID. Existing integrations are unaffected.
+
+### Path-Specific Errors
+
+In addition to the [standard error cases](#error-cases), the run-tracking path may return:
+
+| Condition | HTTP Status | Error Type | Error Code | Message |
+|-----------|-------------|------------|------------|---------|
+| `runId` is not a valid UUID | 400 | `invalid_request_error` | `invalid_run_id` | `runId must be a valid UUID` |
+| `clientTestName` is empty | 400 | `invalid_request_error` | `invalid_client_test_name` | `clientTestName must be provided` |
+| Run exists but belongs to a different org | 404 | `not_found_error` | `run_not_found` | `Test run '{runId}' not found` |
+
+### Integration with Platform
+
+When using run tracking, configure the LLM Provider endpoint to include the run and test path segments:
+
+```
+https://testllm.example.com/v1/org/my-org/suite/my-suite/run/{runId}/test/{clientTestName}
+```
+
+The CI test runner generates a UUID for `runId` at the start of the test execution and uses the test's own name as `clientTestName`. All Responses API calls from all tests in the run share the same `runId`, allowing TestLLM to group them.

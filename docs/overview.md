@@ -16,6 +16,8 @@ A **test** is an ordered sequence of items following the OpenAI Responses API fo
 
 This makes LLM interactions fully deterministic: the agent receives the exact scripted responses, makes the exact scripted tool calls, and produces the exact expected behavior — testable with standard assertions.
 
+For observability, TestLLM supports **test run tracking**. A test run groups all Responses API calls from a single CI execution. Each call is recorded as a response log with full request/response data, timing, and pass/fail status. The Management API and UI provide run summaries, per-test-execution breakdowns, and detailed log inspection — giving visibility into exactly what happened during each test execution.
+
 ```mermaid
 sequenceDiagram
     participant T as E2E Test
@@ -54,19 +56,23 @@ TestLLM is multi-tenant. The hierarchy:
 
 ```
 Organization
-└── Test Suite
-    └── Test
+├── Test Suite
+│   └── Test
+└── Test Run
+    └── Response Log
 ```
 
 - **Organization** — top-level tenant. Users are invited to organizations.
 - **Test Suite** — a grouping of related tests within an organization.
 - **Test** — a single predefined conversation (ordered sequence of Responses API items). The test name is used as the model identifier in Responses API requests. Test names are unique within a test suite.
+- **Test Run** — a container for a single CI/test execution. Groups all Responses API calls made during one run. Created lazily on the first tracked API call. The run ID is client-generated (UUID).
+- **Response Log** — a record of a single Responses API call within a test run. Captures input, output (or error), timing, and resolution metadata.
 
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
 | [Data Model](data-model.md) | Database entities, relationships, item types |
-| [Responses API](responses-api.md) | OpenAI-compatible endpoint — request matching, response generation, error handling |
-| [Management API](management-api.md) | CRUD operations for organizations, test suites, tests, and user management |
+| [Responses API](responses-api.md) | OpenAI-compatible endpoint — request matching, response generation, error handling, run tracking |
+| [Management API](management-api.md) | CRUD operations for organizations, test suites, tests, user management, and test runs |
 | [Authentication](authentication.md) | OIDC for management UI/API, no auth for Responses API |

@@ -692,3 +692,316 @@ DELETE /api/orgs/{orgId}/suites/{suiteId}/tests/{testId}
 **Response:** `204 No Content`
 
 Deletes the test and all its items.
+
+---
+
+## Test Runs
+
+Test runs are created lazily via the [run-tracking Responses API path](responses-api.md#run-tracking-path). The Management API provides read access and optional metadata updates.
+
+### List Test Runs
+
+```
+GET /api/orgs/{orgId}/runs
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `cursor` | string (UUID) | no | Cursor for pagination (run ID from previous page) |
+| `limit` | integer | no | Page size, 1–100 (default: 20) |
+
+**Response:** `200 OK`
+
+```json
+{
+  "runs": [
+    {
+      "id": "run-uuid",
+      "org_id": "org-uuid",
+      "name": null,
+      "commit_sha": null,
+      "branch": null,
+      "created_at": "2025-01-15T10:00:00Z",
+      "tests_total": 50,
+      "tests_passed": 48,
+      "tests_failed": 2,
+      "started_at": "2025-01-15T10:00:01Z",
+      "finished_at": "2025-01-15T10:02:30Z"
+    }
+  ],
+  "next_cursor": "run-uuid-2"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Run ID |
+| `org_id` | UUID | Organization ID |
+| `name` | string or null | Optional display name |
+| `commit_sha` | string or null | Optional Git commit SHA |
+| `branch` | string or null | Optional Git branch |
+| `created_at` | string (datetime) | Run creation time |
+| `tests_total` | integer | Count of distinct `client_test_name` values in the run |
+| `tests_passed` | integer | Tests where all response logs have `status = 'success'` |
+| `tests_failed` | integer | Tests where any response log has `status = 'error'` |
+| `started_at` | string (datetime) or null | Earliest response log timestamp. `null` if no logs. |
+| `finished_at` | string (datetime) or null | Latest response log timestamp. `null` if no logs. |
+| `next_cursor` | string (UUID) or null | Cursor for the next page. `null` if no more results. |
+
+Runs are ordered by `created_at` descending (most recent first).
+
+### Get Test Run
+
+```
+GET /api/orgs/{orgId}/runs/{runId}
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "id": "run-uuid",
+  "org_id": "org-uuid",
+  "name": "CI Run #1234",
+  "commit_sha": "abc123def456",
+  "branch": "main",
+  "created_at": "2025-01-15T10:00:00Z",
+  "tests_total": 50,
+  "tests_passed": 48,
+  "tests_failed": 2,
+  "started_at": "2025-01-15T10:00:01Z",
+  "finished_at": "2025-01-15T10:02:30Z",
+  "test_executions": [
+    {
+      "client_test_name": "test_weather_agent_responds",
+      "status": "passed",
+      "call_count": 2,
+      "suites_used": ["agent-weather"],
+      "first_error": null,
+      "started_at": "2025-01-15T10:00:01Z",
+      "finished_at": "2025-01-15T10:00:03Z"
+    },
+    {
+      "client_test_name": "test_weather_agent_unknown_city",
+      "status": "failed",
+      "call_count": 1,
+      "suites_used": ["agent-weather"],
+      "first_error": {
+        "code": "input_mismatch",
+        "message": "Input mismatch at position 1: expected message with role 'user'..."
+      },
+      "started_at": "2025-01-15T10:00:05Z",
+      "finished_at": "2025-01-15T10:00:05Z"
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `test_executions` | array | Grouped by `client_test_name`, ordered by `started_at` ascending |
+| `test_executions[].client_test_name` | string | The client-side test identifier |
+| `test_executions[].status` | string | `"passed"` or `"failed"` |
+| `test_executions[].call_count` | integer | Number of Responses API calls made by this test |
+| `test_executions[].suites_used` | array of strings | Distinct suite names referenced in the calls |
+| `test_executions[].first_error` | object or null | First error encountered: `{ "code": "...", "message": "..." }`. `null` if passed. |
+| `test_executions[].started_at` | string (datetime) | Earliest response log timestamp for this test |
+| `test_executions[].finished_at` | string (datetime) | Latest response log timestamp for this test |
+
+All other fields are the same as in the [list response](#list-test-runs).
+
+### Update Test Run
+
+```
+PATCH /api/orgs/{orgId}/runs/{runId}
+```
+
+Sets optional metadata on a test run. Typically called by the CI runner after the run is created.
+
+**Request:**
+
+```json
+{
+  "name": "CI Run #1234",
+  "commit_sha": "abc123def456",
+  "branch": "main"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | no | Display name (min 1 character) |
+| `commit_sha` | string | no | Git commit SHA (min 1 character) |
+| `branch` | string | no | Git branch name (min 1 character) |
+
+**Response:** `200 OK`
+
+```json
+{
+  "id": "run-uuid",
+  "org_id": "org-uuid",
+  "name": "CI Run #1234",
+  "commit_sha": "abc123def456",
+  "branch": "main",
+  "created_at": "2025-01-15T10:00:00Z"
+}
+```
+
+---
+
+## Response Logs
+
+Response logs are created automatically by the [run-tracking Responses API path](responses-api.md#run-tracking-path). The Management API provides read-only access.
+
+### List Response Logs
+
+```
+GET /api/orgs/{orgId}/runs/{runId}/logs
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `cursor` | string (UUID) | no | Cursor for pagination (log ID from previous page) |
+| `limit` | integer | no | Page size, 1–100 (default: 50) |
+| `client_test_name` | string | no | Filter by client test name |
+| `status` | enum | no | Filter by status: `success` or `error` |
+
+**Response:** `200 OK`
+
+```json
+{
+  "logs": [
+    {
+      "id": "log-uuid",
+      "run_id": "run-uuid",
+      "status": "success",
+      "org_slug": "my-org",
+      "suite_name": "agent-weather",
+      "model": "happy-path",
+      "client_test_name": "test_weather_agent_responds",
+      "stream": false,
+      "suite_id": "suite-uuid",
+      "test_id": "test-uuid",
+      "response_id": "resp_abc123",
+      "error_code": null,
+      "error_message": null,
+      "duration_ms": 12,
+      "created_at": "2025-01-15T10:00:01Z"
+    }
+  ],
+  "next_cursor": "log-uuid-2"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Log ID |
+| `run_id` | UUID | Parent test run ID |
+| `status` | enum | `success` or `error` |
+| `org_slug` | string | Organization slug from the request path |
+| `suite_name` | string | Test suite name from the request path |
+| `model` | string | Model (test name) from the request body |
+| `client_test_name` | string | Client-side test identifier from the request path |
+| `stream` | boolean | Whether streaming was requested |
+| `suite_id` | UUID or null | Resolved test suite ID. `null` if suite was not found. |
+| `test_id` | UUID or null | Resolved test ID. `null` if test was not found. |
+| `response_id` | string or null | Response ID from the response payload. `null` on error. |
+| `error_code` | string or null | Error code. `null` on success. |
+| `error_message` | string or null | Error message. `null` on success. |
+| `duration_ms` | integer | Matching duration in milliseconds |
+| `created_at` | string (datetime) | Log creation time |
+| `next_cursor` | string (UUID) or null | Cursor for the next page. `null` if no more results. |
+
+The list endpoint omits `input` and `output` fields to keep payloads small. Use the [detail endpoint](#get-response-log) for full data.
+
+Logs are ordered by `created_at` descending (most recent first).
+
+### Get Response Log
+
+```
+GET /api/orgs/{orgId}/runs/{runId}/logs/{logId}
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "id": "log-uuid",
+  "run_id": "run-uuid",
+  "status": "success",
+  "org_slug": "my-org",
+  "suite_name": "agent-weather",
+  "model": "happy-path",
+  "client_test_name": "test_weather_agent_responds",
+  "input": [
+    {
+      "role": "system",
+      "content": "You are a weather assistant."
+    },
+    {
+      "role": "user",
+      "content": "What is the weather in San Francisco?"
+    }
+  ],
+  "stream": false,
+  "suite_id": "suite-uuid",
+  "test_id": "test-uuid",
+  "output": {
+    "id": "resp_abc123",
+    "object": "response",
+    "created_at": 1700000000,
+    "model": "happy-path",
+    "output": [
+      {
+        "id": "fc_def456",
+        "type": "function_call",
+        "call_id": "call_abc123",
+        "name": "get_weather",
+        "arguments": "{\"location\":\"San Francisco\"}",
+        "status": "completed"
+      }
+    ],
+    "status": "completed"
+  },
+  "response_id": "resp_abc123",
+  "error_code": null,
+  "error_message": null,
+  "duration_ms": 12,
+  "created_at": "2025-01-15T10:00:01Z"
+}
+```
+
+The detail endpoint includes `input` and `output` fields — the full request input and response payload.
+
+For error logs, `output` is `null` and `error_code`/`error_message` describe the failure:
+
+```json
+{
+  "id": "log-uuid",
+  "run_id": "run-uuid",
+  "status": "error",
+  "org_slug": "my-org",
+  "suite_name": "agent-weather",
+  "model": "wrong-test-name",
+  "client_test_name": "test_weather_agent_responds",
+  "input": [
+    {
+      "role": "user",
+      "content": "Hello"
+    }
+  ],
+  "stream": false,
+  "suite_id": "suite-uuid",
+  "test_id": null,
+  "output": null,
+  "response_id": null,
+  "error_code": "model_not_found",
+  "error_message": "Model 'wrong-test-name' not found in suite 'agent-weather'",
+  "duration_ms": 3,
+  "created_at": "2025-01-15T10:00:02Z"
+}
+```
