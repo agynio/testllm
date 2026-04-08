@@ -293,6 +293,47 @@ export function matchInput(
   return { outputItems };
 }
 
+
+/**
+ * Compare two output strings for semantic equality.
+ * If both strings are valid JSON, compare the parsed values (ignoring key order).
+ * Otherwise, fall back to exact string comparison.
+ */
+function outputMatches(expected: string, actual: string): boolean {
+  if (expected === actual) return true;
+  try {
+    const expectedParsed: unknown = JSON.parse(expected);
+    const actualParsed: unknown = JSON.parse(actual);
+    return jsonDeepEqual(expectedParsed, actualParsed);
+  } catch {
+    return false;
+  }
+}
+
+function jsonDeepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return a === b;
+  if (typeof a !== typeof b) return false;
+
+  if (Array.isArray(a)) {
+    if (!Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((val, i) => jsonDeepEqual(val, b[i]));
+  }
+
+  if (typeof a === "object" && typeof b === "object") {
+    const aObj = a as Record<string, unknown>;
+    const bObj = b as Record<string, unknown>;
+    const aKeys = Object.keys(aObj);
+    const bKeys = Object.keys(bObj);
+    if (aKeys.length !== bKeys.length) return false;
+    return aKeys.every(
+      (key) => key in bObj && jsonDeepEqual(aObj[key], bObj[key])
+    );
+  }
+
+  return false;
+}
+
 function compareItems(
   expected: TestItemRecord,
   actual: NormalizedInputItem,
@@ -361,7 +402,10 @@ function compareItems(
     actual.type === "function_call_output"
   ) {
     const content = expected.content;
-    if (content.call_id !== actual.call_id || content.output !== actual.output) {
+    if (
+      content.call_id !== actual.call_id ||
+      !outputMatches(content.output, actual.output)
+    ) {
       return {
         status: 400,
         message:

@@ -408,3 +408,85 @@ describe("matchInput", () => {
     }
   });
 });
+
+describe("function_call_output JSON-semantic comparison", () => {
+  it("matches function_call_output with reordered JSON keys", () => {
+    const sequence = [
+      messageItem(0, "user", "Create entity"),
+      functionCallItem(1, "fc_001", "create_entities", '{"entities":[{"name":"test","entityType":"project"}]}'),
+      functionCallOutputItem(2, "fc_001", '{"entities":[{"name":"test","entityType":"project"}]}'),
+      messageItem(3, "assistant", "Done"),
+    ];
+    const input = normalizeInput([
+      { role: "user", content: "Create entity" },
+      {
+        type: "function_call",
+        call_id: "fc_001",
+        name: "create_entities",
+        arguments: '{"entities":[{"name":"test","entityType":"project"}]}',
+      },
+      {
+        type: "function_call_output",
+        call_id: "fc_001",
+        // Keys in different (alphabetical) order — should still match
+        output: '{"entities":[{"entityType":"project","name":"test"}]}',
+      },
+    ]);
+    const result = matchInput(sequence, input);
+    expect(isMatchError(result)).toBe(false);
+    if (!isMatchError(result)) {
+      expect(result.outputItems).toHaveLength(1);
+      expect(result.outputItems[0].type).toBe("message");
+    }
+  });
+
+  it("still rejects function_call_output with different JSON values", () => {
+    const sequence = [
+      messageItem(0, "user", "Create entity"),
+      functionCallItem(1, "fc_001", "create_entities", "{}"),
+      functionCallOutputItem(2, "fc_001", '{"entities":[{"name":"test"}]}'),
+      messageItem(3, "assistant", "Done"),
+    ];
+    const input = normalizeInput([
+      { role: "user", content: "Create entity" },
+      {
+        type: "function_call",
+        call_id: "fc_001",
+        name: "create_entities",
+        arguments: "{}",
+      },
+      {
+        type: "function_call_output",
+        call_id: "fc_001",
+        output: '{"entities":[{"name":"different"}]}',
+      },
+    ]);
+    const result = matchInput(sequence, input);
+    expect(isMatchError(result)).toBe(true);
+  });
+
+  it("compares non-JSON output as exact strings", () => {
+    const sequence = [
+      messageItem(0, "user", "Run tool"),
+      functionCallItem(1, "fc_001", "tool", "{}"),
+      functionCallOutputItem(2, "fc_001", "plain text output"),
+      messageItem(3, "assistant", "Done"),
+    ];
+    const input = normalizeInput([
+      { role: "user", content: "Run tool" },
+      {
+        type: "function_call",
+        call_id: "fc_001",
+        name: "tool",
+        arguments: "{}",
+      },
+      {
+        type: "function_call_output",
+        call_id: "fc_001",
+        output: "different plain text",
+      },
+    ]);
+    const result = matchInput(sequence, input);
+    expect(isMatchError(result)).toBe(true);
+  });
+});
