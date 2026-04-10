@@ -77,6 +77,7 @@ erDiagram
         uuid org_id FK
         string name
         string description
+        string protocol
         timestamp created_at
         timestamp updated_at
     }
@@ -233,12 +234,13 @@ A grouping of related tests within an organization.
 | `org_id` | UUID | FK → Organization |
 | `name` | string | Display name, unique within the organization |
 | `description` | string | Optional description |
+| `protocol` | enum | Protocol used by the suite (`openai` or `anthropic`) |
 | `created_at` | timestamp | Creation time |
 | `updated_at` | timestamp | Last modification time |
 
 ### Test
 
-A single predefined conversation. The test name is used as the `model` field in Responses API requests.
+A single predefined conversation. The test name is used as the `model` field in Responses or Messages API requests.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -251,7 +253,7 @@ A single predefined conversation. The test name is used as the `model` field in 
 
 ### TestItem
 
-A single item in a test's conversation sequence. Items are ordered by `position` and follow the OpenAI Responses API item types.
+A single item in a test's conversation sequence. Items are ordered by `position` and follow the protocol-specific item types for the parent suite.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -288,7 +290,7 @@ TestRun has no status or lifecycle fields. Duration and timing are derived from 
 
 ### ResponseLog
 
-Records a single Responses API call attributed to a test run. Created via fire-and-forget after each Responses API request on the run-tracking path.
+Records a single Responses or Messages API call attributed to a test run. Created via fire-and-forget after each tracked request.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -337,11 +339,13 @@ This design allows a single TestLLM test (conversation sequence) to be reused by
 
 ## Item Types
 
-TestItems represent items in the OpenAI Responses API format. The `type` field determines the role of the item and the structure of `content`.
+TestItems represent protocol-specific items. The `type` field determines the role of the item and the structure of `content`.
 
 Items are classified as **input items** or **output items**:
-- **Input items** — items sent by the caller to the model. The Responses API endpoint matches incoming `input` against these.
-- **Output items** — items returned by the model. The Responses API endpoint returns these when input matches.
+- **Input items** — items sent by the caller to the model. The Responses or Messages endpoint matches incoming inputs against these.
+- **Output items** — items returned by the model. The endpoint returns these when input matches.
+
+### OpenAI Responses API types
 
 ### `message` (input)
 
@@ -400,6 +404,43 @@ A function call emitted by the model.
     "call_id": "call_abc123",
     "name": "get_weather",
     "arguments": "{\"location\":\"San Francisco\",\"unit\":\"fahrenheit\"}"
+  }
+}
+```
+
+### Anthropic Messages API types
+
+Anthropic suites use two item types:
+
+- `anthropic_system` — system prompt stored as either `{ "text": "..." }` or `{ "blocks": [ ... ] }`.
+- `anthropic_message` — user or assistant messages stored with a `role` (`user` or `assistant`) and `content` as a string or array of content blocks.
+
+Content blocks follow the Anthropic Messages API format:
+
+- `text` — `{ "type": "text", "text": "..." }`
+- `tool_use` — `{ "type": "tool_use", "id": "...", "name": "...", "input": { ... } }`
+- `tool_result` — `{ "type": "tool_result", "tool_use_id": "...", "content": "..." }`
+
+```json
+{
+  "type": "anthropic_system",
+  "content": {
+    "text": "You are a weather assistant."
+  }
+}
+```
+
+```json
+{
+  "type": "anthropic_message",
+  "content": {
+    "role": "user",
+    "content": [
+      {
+        "type": "text",
+        "text": "Weather in SF?"
+      }
+    ]
   }
 }
 ```

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ContentBlockSchema } from "@/lib/messages/schemas";
 
 const InputMessageContentSchema = z.object({
   role: z.enum(["user", "system", "developer"]),
@@ -45,6 +46,31 @@ const TestItemSchema = z.union([
   FunctionCallOutputItemSchema,
 ]);
 
+const AnthropicSystemContentSchema = z.union([
+  z.object({ text: z.string() }).passthrough(),
+  z.object({ blocks: z.array(ContentBlockSchema) }).passthrough(),
+]);
+
+const AnthropicMessageContentSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.union([z.string(), z.array(ContentBlockSchema)]),
+});
+
+const AnthropicSystemItemSchema = z.object({
+  type: z.literal("anthropic_system"),
+  content: AnthropicSystemContentSchema,
+});
+
+const AnthropicMessageItemSchema = z.object({
+  type: z.literal("anthropic_message"),
+  content: AnthropicMessageContentSchema,
+});
+
+const AnthropicTestItemSchema = z.union([
+  AnthropicSystemItemSchema,
+  AnthropicMessageItemSchema,
+]);
+
 export const CreateTestSchema = z.object({
   name: z.string().min(1, { error: "name is required" }),
   description: z.string().optional(),
@@ -55,4 +81,18 @@ export const UpdateTestSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
   items: z.array(TestItemSchema).min(1).optional(),
+});
+
+export const CreateAnthropicTestSchema = z.object({
+  name: z.string().min(1, { error: "name is required" }),
+  description: z.string().optional(),
+  items: z
+    .array(AnthropicTestItemSchema)
+    .min(1, { error: "items must not be empty" }),
+});
+
+export const UpdateAnthropicTestSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+  items: z.array(AnthropicTestItemSchema).min(1).optional(),
 });

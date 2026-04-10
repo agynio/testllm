@@ -31,6 +31,23 @@ export function responsesRunUrl(
   );
 }
 
+export function messagesUrl(orgSlug: string, suiteName: string) {
+  return apiUrl(`/v1/org/${orgSlug}/suite/${suiteName}/messages`);
+}
+
+export function messagesRunUrl(
+  orgSlug: string,
+  suiteName: string,
+  runId: string,
+  clientTestName: string
+) {
+  return apiUrl(
+    `/v1/org/${orgSlug}/suite/${suiteName}/run/${runId}/test/${encodeURIComponent(
+      clientTestName
+    )}/messages`
+  );
+}
+
 export function jsonRequest(body: unknown): RequestInit {
   return {
     headers: {

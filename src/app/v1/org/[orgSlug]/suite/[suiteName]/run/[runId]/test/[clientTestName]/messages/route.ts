@@ -1,14 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { Prisma, ResponseLogStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { openaiError } from "@/lib/errors";
+import { anthropicError } from "@/lib/errors";
 import {
-  createResponseMetadata,
+  createMessageMetadata,
   formatResponse,
   formatSSEStream,
-} from "@/lib/responses/formatting";
-import { parseResponsesRequestBody } from "@/lib/responses/request";
-import { resolveResponseMatch } from "@/lib/responses/resolve";
+} from "@/lib/messages/formatting";
+import { parseMessagesRequestBody } from "@/lib/messages/request";
+import { resolveMessageMatch } from "@/lib/messages/resolve";
 import {
   ensureTestRun,
   parseRunParams,
@@ -25,8 +25,11 @@ const formatRunError = (
   status: number,
   message: string,
   type: string,
-  code: string
-) => openaiError(status, message, type, code);
+  _code: string
+) => {
+  void _code;
+  return anthropicError(status, message, type);
+};
 
 export async function POST(
   request: NextRequest,
@@ -51,21 +54,20 @@ export async function POST(
   );
   if (!runParams.ok) return runParams.error;
 
-  const parsedRequest = await parseResponsesRequestBody(request);
+  const parsedRequest = await parseMessagesRequestBody(request);
   if (!parsedRequest.ok) return parsedRequest.error;
 
-  const { model, input, stream } = parsedRequest.data;
+  const { model, system, messages, max_tokens, stream } = parsedRequest.data;
   const streamEnabled = stream === true;
 
   const org = await prisma.organization.findUnique({
     where: { slug: orgSlug },
   });
   if (!org) {
-    return openaiError(
+    return anthropicError(
       404,
       `Organization '${orgSlug}' not found`,
-      "not_found_error",
-      "org_not_found"
+      "not_found_error"
     );
   }
 
@@ -78,14 +80,21 @@ export async function POST(
   if (!runResult.ok) return runResult.error;
 
   const startedAt = Date.now();
-  const matchResult = await resolveResponseMatch({
+  const matchResult = await resolveMessageMatch({
     orgSlug,
     suiteName,
     model,
-    input,
+    system,
+    messages,
     org,
   });
   const durationMs = Date.now() - startedAt;
+
+  const inputPayload = {
+    system: system ?? null,
+    messages,
+    max_tokens,
+  } as Prisma.InputJsonValue;
 
   if (!matchResult.ok) {
     recordResponseLog({
@@ -95,7 +104,7 @@ export async function POST(
       suiteName,
       model,
       clientTestName: runParams.data.clientTestName,
-      input,
+      input: inputPayload,
       stream: streamEnabled,
       suiteId: matchResult.suite?.id ?? null,
       testId: matchResult.test?.id ?? null,
@@ -107,10 +116,10 @@ export async function POST(
     return matchResult.response;
   }
 
-  const metadata = createResponseMetadata();
+  const metadata = createMessageMetadata();
   const responsePayload = formatResponse(
     model,
-    matchResult.outputItems,
+    matchResult.outputMessage,
     metadata
   );
   const outputPayload: Prisma.InputJsonValue = responsePayload;
@@ -122,7 +131,7 @@ export async function POST(
     suiteName,
     model,
     clientTestName: runParams.data.clientTestName,
-    input,
+    input: inputPayload,
     stream: streamEnabled,
     suiteId: matchResult.suite.id,
     testId: matchResult.test.id,
@@ -136,7 +145,7 @@ export async function POST(
   if (streamEnabled) {
     const streamBody = formatSSEStream(
       model,
-      matchResult.outputItems,
+      matchResult.outputMessage,
       metadata
     );
     return new Response(streamBody, {
@@ -147,5 +156,7 @@ export async function POST(
     });
   }
 
-  return NextResponse.json(responsePayload);
+  return new Response(JSON.stringify(responsePayload), {
+    headers: { "Content-Type": "application/json" },
+  });
 }

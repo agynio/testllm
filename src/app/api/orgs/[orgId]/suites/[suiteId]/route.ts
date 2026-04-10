@@ -26,6 +26,7 @@ export async function GET(
     org_id: suite.orgId,
     name: suite.name,
     description: suite.description,
+    protocol: suite.protocol,
     created_at: suite.createdAt.toISOString(),
     updated_at: suite.updatedAt.toISOString(),
   });
@@ -71,6 +72,7 @@ export async function PATCH(
     org_id: suite.orgId,
     name: suite.name,
     description: suite.description,
+    protocol: suite.protocol,
     created_at: suite.createdAt.toISOString(),
     updated_at: suite.updatedAt.toISOString(),
   });
