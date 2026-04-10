@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ContentBlockSchema } from "@/lib/messages/schemas";
 import type {
   ContentBlock,
   MessageContent,
@@ -7,36 +8,6 @@ import type {
   OutputMessage,
   TestItemRecord,
 } from "@/lib/messages/types";
-
-const TextBlockSchema = z
-  .object({
-    type: z.literal("text"),
-    text: z.string(),
-  })
-  .passthrough();
-
-const ToolUseBlockSchema = z
-  .object({
-    type: z.literal("tool_use"),
-    id: z.string(),
-    name: z.string(),
-    input: z.unknown(),
-  })
-  .passthrough();
-
-const ToolResultBlockSchema = z
-  .object({
-    type: z.literal("tool_result"),
-    tool_use_id: z.string(),
-    content: z.unknown(),
-  })
-  .passthrough();
-
-export const ContentBlockSchema = z.discriminatedUnion("type", [
-  TextBlockSchema,
-  ToolUseBlockSchema,
-  ToolResultBlockSchema,
-]);
 
 const MessageContentSchema = z.union([
   z.string(),
@@ -142,6 +113,7 @@ function normalizeStoredMessage(content: MessageContent): NormalizedMessage {
 function normalizeStoredSystem(
   content: TestItemRecord & { type: "anthropic_system" }
 ): ContentBlock[] {
+  // Stored system content is a union without a discriminant, so probe by key.
   if ("text" in content.content) {
     return [{ type: "text", text: content.content.text }];
   }
@@ -170,6 +142,10 @@ function formatBlocks(blocks: ContentBlock[]): string {
   return JSON.stringify(blocks);
 }
 
+function assertNever(value: never, message: string): never {
+  throw new Error(message);
+}
+
 function blocksEqual(expected: ContentBlock[], actual: ContentBlock[]): boolean {
   if (expected.length !== actual.length) return false;
   return expected.every((block, index) => compareBlock(block, actual[index]));
@@ -178,26 +154,29 @@ function blocksEqual(expected: ContentBlock[], actual: ContentBlock[]): boolean 
 function compareBlock(expected: ContentBlock, actual: ContentBlock): boolean {
   if (expected.type !== actual.type) return false;
 
-  if (expected.type === "text" && actual.type === "text") {
-    return expected.text === actual.text;
+  switch (expected.type) {
+    case "text":
+      return expected.text === (actual as typeof expected).text;
+    case "tool_use":
+      {
+        const actualToolUse = actual as typeof expected;
+        return (
+          expected.id === actualToolUse.id &&
+          expected.name === actualToolUse.name &&
+          jsonDeepEqual(expected.input, actualToolUse.input)
+        );
+      }
+    case "tool_result":
+      {
+        const actualToolResult = actual as typeof expected;
+        return (
+          expected.tool_use_id === actualToolResult.tool_use_id &&
+          jsonDeepEqual(expected.content, actualToolResult.content)
+        );
+      }
+    default:
+      return assertNever(expected, "Unexpected content block type");
   }
-
-  if (expected.type === "tool_use" && actual.type === "tool_use") {
-    return (
-      expected.id === actual.id &&
-      expected.name === actual.name &&
-      jsonDeepEqual(expected.input, actual.input)
-    );
-  }
-
-  if (expected.type === "tool_result" && actual.type === "tool_result") {
-    return (
-      expected.tool_use_id === actual.tool_use_id &&
-      jsonDeepEqual(expected.content, actual.content)
-    );
-  }
-
-  return false;
 }
 
 function jsonDeepEqual(a: unknown, b: unknown): boolean {

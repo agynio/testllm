@@ -40,14 +40,20 @@ export async function parseMessagesRequestBody(
     const issue = parsed.error.issues[0];
     const path = issue.path.join(".");
 
-    const isMissing = (field: string) =>
+    const isMissingModel =
       issue.code === "invalid_type" &&
-      path === field &&
-      (("received" in issue && issue.received === "undefined") ||
-        issue.message.toLowerCase().includes("required") ||
-        issue.message.includes("received undefined"));
+      path === "model" &&
+      issue.message.includes("received undefined");
+    const isMissingMaxTokens =
+      issue.code === "invalid_type" &&
+      path === "max_tokens" &&
+      issue.message.includes("received undefined");
+    const isMissingMessages =
+      issue.code === "invalid_type" &&
+      path === "messages" &&
+      issue.message.includes("received undefined");
 
-    if (isMissing("model")) {
+    if (isMissingModel) {
       return {
         ok: false,
         error: anthropicError(
@@ -58,7 +64,7 @@ export async function parseMessagesRequestBody(
       };
     }
 
-    if (isMissing("max_tokens")) {
+    if (isMissingMaxTokens) {
       return {
         ok: false,
         error: anthropicError(
@@ -69,7 +75,7 @@ export async function parseMessagesRequestBody(
       };
     }
 
-    if (isMissing("messages")) {
+    if (isMissingMessages) {
       return {
         ok: false,
         error: anthropicError(

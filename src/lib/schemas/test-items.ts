@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ContentBlockSchema } from "@/lib/messages/schemas";
 
 const InputMessageContentSchema = z.object({
   role: z.enum(["user", "system", "developer"]),
@@ -45,44 +46,14 @@ const TestItemSchema = z.union([
   FunctionCallOutputItemSchema,
 ]);
 
-const AnthropicTextBlockSchema = z
-  .object({
-    type: z.literal("text"),
-    text: z.string(),
-  })
-  .passthrough();
-
-const AnthropicToolUseBlockSchema = z
-  .object({
-    type: z.literal("tool_use"),
-    id: z.string(),
-    name: z.string(),
-    input: z.unknown(),
-  })
-  .passthrough();
-
-const AnthropicToolResultBlockSchema = z
-  .object({
-    type: z.literal("tool_result"),
-    tool_use_id: z.string(),
-    content: z.unknown(),
-  })
-  .passthrough();
-
-const AnthropicContentBlockSchema = z.discriminatedUnion("type", [
-  AnthropicTextBlockSchema,
-  AnthropicToolUseBlockSchema,
-  AnthropicToolResultBlockSchema,
-]);
-
 const AnthropicSystemContentSchema = z.union([
   z.object({ text: z.string() }).passthrough(),
-  z.object({ blocks: z.array(AnthropicContentBlockSchema) }).passthrough(),
+  z.object({ blocks: z.array(ContentBlockSchema) }).passthrough(),
 ]);
 
 const AnthropicMessageContentSchema = z.object({
   role: z.enum(["user", "assistant"]),
-  content: z.union([z.string(), z.array(AnthropicContentBlockSchema)]),
+  content: z.union([z.string(), z.array(ContentBlockSchema)]),
 });
 
 const AnthropicSystemItemSchema = z.object({

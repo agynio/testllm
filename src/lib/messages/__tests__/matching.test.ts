@@ -175,4 +175,80 @@ describe("matchInput", () => {
       expect(result.outputMessage.content).toEqual([textBlock("Done")]);
     }
   });
+
+  it("returns input_mismatch when system prompt is missing", () => {
+    const sequence = [
+      systemItem(0, { text: "System prompt" }),
+      messageItem(1, "assistant", "Hi"),
+    ];
+
+    const input = normalizeRequest(undefined, []);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(true);
+    if (isMatchError(result)) {
+      expect(result.code).toBe("input_mismatch");
+      expect(result.message).toContain("expected system prompt");
+    }
+  });
+
+  it("returns input_mismatch when system prompt differs", () => {
+    const sequence = [
+      systemItem(0, { text: "Expected" }),
+      messageItem(1, "assistant", "Hi"),
+    ];
+
+    const input = normalizeRequest("Actual", []);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(true);
+    if (isMatchError(result)) {
+      expect(result.code).toBe("input_mismatch");
+      expect(result.message).toContain("expected system content");
+    }
+  });
+
+  it("returns input_mismatch when role mismatches", () => {
+    const sequence = [
+      messageItem(0, "user", "Hello"),
+      messageItem(1, "assistant", "Hi"),
+    ];
+
+    const input = normalizeRequest(undefined, [
+      { role: "assistant", content: "Hello" },
+    ]);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(true);
+    if (isMatchError(result)) {
+      expect(result.code).toBe("input_mismatch");
+      expect(result.message).toContain("expected role 'user'");
+    }
+  });
+
+  it("returns input_mismatch when content mismatches", () => {
+    const sequence = [
+      messageItem(0, "user", "Hello"),
+      messageItem(1, "assistant", "Hi"),
+    ];
+
+    const input = normalizeRequest(undefined, [
+      { role: "user", content: "Different" },
+    ]);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(true);
+    if (isMatchError(result)) {
+      expect(result.code).toBe("input_mismatch");
+      expect(result.message).toContain("expected content");
+    }
+  });
+
+  it("returns sequence_exhausted for an empty sequence", () => {
+    const result = matchInput([], normalizeRequest(undefined, []));
+    expect(isMatchError(result)).toBe(true);
+    if (isMatchError(result)) {
+      expect(result.code).toBe("sequence_exhausted");
+    }
+  });
 });

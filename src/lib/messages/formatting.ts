@@ -24,8 +24,8 @@ function stopReasonFor(content: ContentBlock[]): StopReason {
     : "end_turn";
 }
 
-function normalizeBlocks(content: ContentBlock[]): ContentBlock[] {
-  return content;
+function assertNever(value: never, message: string): never {
+  throw new Error(message);
 }
 
 export function formatResponse(
@@ -33,7 +33,7 @@ export function formatResponse(
   outputMessage: OutputMessage,
   metadata: MessageMetadata = createMessageMetadata()
 ): AnthropicMessageResponse {
-  const content = normalizeBlocks(outputMessage.content);
+  const content = outputMessage.content;
 
   return {
     id: metadata.messageId,
@@ -48,41 +48,43 @@ export function formatResponse(
 }
 
 function initialContentBlock(block: ContentBlock): ContentBlock {
-  if (block.type === "text") {
-    return { type: "text", text: "" };
+  switch (block.type) {
+    case "text":
+      return { type: "text", text: "" };
+    case "tool_use":
+      return {
+        type: "tool_use",
+        id: block.id,
+        name: block.name,
+        input: {},
+      };
+    case "tool_result":
+      return assertNever(
+        block as never,
+        "Tool result blocks are not valid in assistant output"
+      );
+    default:
+      return assertNever(block as never, "Unexpected content block type");
   }
-  if (block.type === "tool_use") {
-    return {
-      type: "tool_use",
-      id: block.id,
-      name: block.name,
-      input: {},
-    };
-  }
-  return {
-    type: "tool_result",
-    tool_use_id: block.tool_use_id,
-    content: "",
-  };
 }
 
 function blockDelta(block: ContentBlock): TextDelta | InputJsonDelta {
-  if (block.type === "text") {
-    return { type: "text_delta", text: block.text };
+  switch (block.type) {
+    case "text":
+      return { type: "text_delta", text: block.text };
+    case "tool_use":
+      return {
+        type: "input_json_delta",
+        partial_json: JSON.stringify(block.input),
+      };
+    case "tool_result":
+      return assertNever(
+        block as never,
+        "Tool result blocks are not valid in assistant output"
+      );
+    default:
+      return assertNever(block as never, "Unexpected content block type");
   }
-  if (block.type === "tool_use") {
-    return {
-      type: "input_json_delta",
-      partial_json: JSON.stringify(block.input),
-    };
-  }
-  return {
-    type: "text_delta",
-    text:
-      typeof block.content === "string"
-        ? block.content
-        : JSON.stringify(block.content),
-  };
 }
 
 export function formatSSEStream(
@@ -90,7 +92,7 @@ export function formatSSEStream(
   outputMessage: OutputMessage,
   metadata: MessageMetadata = createMessageMetadata()
 ): ReadableStream<Uint8Array> {
-  const content = normalizeBlocks(outputMessage.content);
+  const content = outputMessage.content;
   const stopReason = stopReasonFor(content);
 
   const startMessage: AnthropicMessageStart = {

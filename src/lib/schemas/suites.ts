@@ -9,5 +9,4 @@ export const CreateSuiteSchema = z.object({
 export const UpdateSuiteSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
-  protocol: z.enum(["openai", "anthropic"]).optional(),
 });
