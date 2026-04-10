@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAuthWithMembership } from "@/lib/auth-helpers";
 import { parseRequestBody } from "@/lib/validation";
 import { conflictError, notFoundError } from "@/lib/errors";
-import { CreateTestSchema } from "@/lib/schemas/test-items";
+import {
+  CreateAnthropicTestSchema,
+  CreateTestSchema,
+} from "@/lib/schemas/test-items";
 import { findSuiteOrNull, formatTestResponse } from "@/lib/test-helpers";
+
+type CreateTestPayload =
+  | z.infer<typeof CreateTestSchema>
+  | z.infer<typeof CreateAnthropicTestSchema>;
 
 export async function POST(
   request: NextRequest,
@@ -19,7 +27,11 @@ export async function POST(
   const suite = await findSuiteOrNull(orgId, suiteId);
   if (!suite) return notFoundError("Test suite");
 
-  const parsed = await parseRequestBody(request, CreateTestSchema);
+  const schema: z.ZodType<CreateTestPayload> =
+    suite.protocol === "anthropic"
+      ? CreateAnthropicTestSchema
+      : CreateTestSchema;
+  const parsed = await parseRequestBody<CreateTestPayload>(request, schema);
   if (!parsed.ok) return parsed.error;
   const { name, description, items } = parsed.data;
 
@@ -33,7 +45,7 @@ export async function POST(
           create: items.map((item, index) => ({
             position: index,
             type: item.type,
-            content: item.content,
+            content: item.content as Prisma.InputJsonValue,
           })),
         },
       },

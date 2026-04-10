@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAuthWithMembership } from "@/lib/auth-helpers";
 import { parseRequestBody } from "@/lib/validation";
 import { conflictError, notFoundError } from "@/lib/errors";
-import { UpdateTestSchema } from "@/lib/schemas/test-items";
+import {
+  UpdateAnthropicTestSchema,
+  UpdateTestSchema,
+} from "@/lib/schemas/test-items";
 import { findTestOrNull, formatTestResponse } from "@/lib/test-helpers";
+
+type UpdateTestPayload =
+  | z.infer<typeof UpdateTestSchema>
+  | z.infer<typeof UpdateAnthropicTestSchema>;
 
 export async function GET(
   request: NextRequest,
@@ -38,7 +47,11 @@ export async function PATCH(
   const test = await findTestOrNull(orgId, suiteId, testId);
   if (!test) return notFoundError("Test");
 
-  const parsed = await parseRequestBody(request, UpdateTestSchema);
+  const schema: z.ZodType<UpdateTestPayload> =
+    test.testSuite.protocol === "anthropic"
+      ? UpdateAnthropicTestSchema
+      : UpdateTestSchema;
+  const parsed = await parseRequestBody<UpdateTestPayload>(request, schema);
   if (!parsed.ok) return parsed.error;
 
   const { name, description, items } = parsed.data;
@@ -68,7 +81,7 @@ export async function PATCH(
             create: items.map((item, index) => ({
               position: index,
               type: item.type,
-              content: item.content,
+              content: item.content as Prisma.InputJsonValue,
             })),
           },
         },

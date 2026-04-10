@@ -17,6 +17,13 @@ enum TestItemType {
   message
   function_call
   function_call_output
+  anthropic_system
+  anthropic_message
+}
+
+enum Protocol {
+  openai
+  anthropic
 }
 
 enum ResponseLogStatus {
@@ -117,6 +124,7 @@ model TestSuite {
   orgId       String   @map("org_id") @db.Uuid
   name        String
   description String?
+  protocol    Protocol @default(openai)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 

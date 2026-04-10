@@ -62,3 +62,16 @@ export function openaiError(
 ): NextResponse {
   return errorResponse(status, { message, type, code });
 }
+
+// ── Messages API errors (Anthropic format) ──
+
+export function anthropicError(
+  status: number,
+  message: string,
+  type: string
+): NextResponse {
+  return NextResponse.json(
+    { type: "error", error: { type, message } },
+    { status }
+  );
+}

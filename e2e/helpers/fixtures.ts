@@ -153,6 +153,79 @@ export const multiOutputSequence: TestItemFixture[] = [
   },
 ];
 
+export const anthropicSimpleSequence: TestItemFixture[] = [
+  {
+    type: "anthropic_system",
+    content: {
+      text: "You are helpful.",
+    },
+  },
+  {
+    type: "anthropic_message",
+    content: {
+      role: "user",
+      content: "Hello there",
+    },
+  },
+  {
+    type: "anthropic_message",
+    content: {
+      role: "assistant",
+      content: [{ type: "text", text: "Hi! How can I help?" }],
+    },
+  },
+];
+
+export const anthropicToolSequence: TestItemFixture[] = [
+  {
+    type: "anthropic_system",
+    content: {
+      text: "You are a weather assistant.",
+    },
+  },
+  {
+    type: "anthropic_message",
+    content: {
+      role: "user",
+      content: [{ type: "text", text: "Weather in SF?" }],
+    },
+  },
+  {
+    type: "anthropic_message",
+    content: {
+      role: "assistant",
+      content: [
+        {
+          type: "tool_use",
+          id: "toolu_01",
+          name: "get_weather",
+          input: { city: "SF" },
+        },
+      ],
+    },
+  },
+  {
+    type: "anthropic_message",
+    content: {
+      role: "user",
+      content: [
+        {
+          type: "tool_result",
+          tool_use_id: "toolu_01",
+          content: "65F",
+        },
+      ],
+    },
+  },
+  {
+    type: "anthropic_message",
+    content: {
+      role: "assistant",
+      content: [{ type: "text", text: "It is 65F." }],
+    },
+  },
+];
+
 export function withPositions<T extends TestItemFixture>(
   items: ReadonlyArray<T>
 ) {

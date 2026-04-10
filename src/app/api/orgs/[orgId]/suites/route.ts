@@ -17,11 +17,11 @@ export async function POST(
 
   const parsed = await parseRequestBody(request, CreateSuiteSchema);
   if (!parsed.ok) return parsed.error;
-  const { name, description } = parsed.data;
+  const { name, description, protocol } = parsed.data;
 
   try {
     const suite = await prisma.testSuite.create({
-      data: { orgId, name, description },
+      data: { orgId, name, description, protocol },
     });
 
     return NextResponse.json(
@@ -30,6 +30,7 @@ export async function POST(
         org_id: suite.orgId,
         name: suite.name,
         description: suite.description,
+        protocol: suite.protocol,
         created_at: suite.createdAt.toISOString(),
         updated_at: suite.updatedAt.toISOString(),
       },
@@ -67,6 +68,7 @@ export async function GET(
       org_id: suite.orgId,
       name: suite.name,
       description: suite.description,
+      protocol: suite.protocol,
       created_at: suite.createdAt.toISOString(),
       updated_at: suite.updatedAt.toISOString(),
     }))
