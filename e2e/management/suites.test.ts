@@ -19,7 +19,21 @@ describe("management api test suites", () => {
       org_id: org.id,
       name: defaultSuitePayload.name,
       description: defaultSuitePayload.description,
+      protocol: "openai",
     });
+  });
+
+  it("creates a suite with the anthropic protocol", async () => {
+    const admin = await createTestUser();
+    const { body: org } = await createOrg(admin);
+
+    const { response, body } = await createSuite(admin, org.id, {
+      name: "suite-anthropic",
+      protocol: "anthropic",
+    });
+
+    expect(response.status).toBe(201);
+    expect(body.protocol).toBe("anthropic");
   });
 
   it("allows members to create test suites", async () => {
@@ -82,7 +96,10 @@ describe("management api test suites", () => {
     const admin = await createTestUser();
     const { body: org } = await createOrg(admin);
     await createSuite(admin, org.id, { name: "suite-one" });
-    await createSuite(admin, org.id, { name: "suite-two" });
+    await createSuite(admin, org.id, {
+      name: "suite-two",
+      protocol: "anthropic",
+    });
 
     const response = await authenticatedFetch(
       managementUrl(`/orgs/${org.id}/suites`),
@@ -97,6 +114,16 @@ describe("management api test suites", () => {
       "suite-one",
       "suite-two",
     ]);
+    const protocols = Object.fromEntries(
+      body.map((item: { name: string; protocol: string }) => [
+        item.name,
+        item.protocol,
+      ])
+    );
+    expect(protocols).toEqual({
+      "suite-one": "openai",
+      "suite-two": "anthropic",
+    });
   });
 
   it("allows members to list suites", async () => {
@@ -133,7 +160,35 @@ describe("management api test suites", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body).toMatchObject({ id: suite.id, org_id: org.id });
+    expect(body).toMatchObject({
+      id: suite.id,
+      org_id: org.id,
+      protocol: "openai",
+    });
+  });
+
+  it("does not allow protocol changes via patch", async () => {
+    const admin = await createTestUser();
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id);
+
+    const response = await authenticatedFetch(
+      managementUrl(`/orgs/${org.id}/suites/${suite.id}`),
+      {
+        method: "PATCH",
+        ...jsonRequest({ protocol: "anthropic" }),
+      },
+      admin
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.protocol).toBe("openai");
+
+    const persisted = await prisma.testSuite.findUnique({
+      where: { id: suite.id },
+    });
+    expect(persisted?.protocol).toBe("openai");
   });
 
   it("returns 404 when suite does not belong to org", async () => {

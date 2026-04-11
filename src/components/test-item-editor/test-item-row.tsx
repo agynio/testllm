@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ItemContentFields } from "@/components/test-item-editor/item-content-fields";
+import { getTestItemDirection } from "@/components/test-item-editor/utils";
 import type { TestItemDraft } from "@/components/test-item-editor/types";
 
 type TestItemRowProps = {
@@ -26,18 +27,12 @@ type TestItemRowProps = {
   isFirst: boolean;
   isLast: boolean;
   disableRemove: boolean;
+  protocol: "openai" | "anthropic";
   onChange: (item: TestItemDraft) => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
 };
-
-function getDirection(item: TestItemDraft) {
-  if (item.type === "message") {
-    return item.content.role === "assistant" ? "OUTPUT" : "INPUT";
-  }
-  return item.type === "function_call" ? "OUTPUT" : "INPUT";
-}
 
 function getDefaultContent(type: TestItemDraft["type"]): TestItemDraft {
   const clientId = crypto.randomUUID();
@@ -55,11 +50,29 @@ function getDefaultContent(type: TestItemDraft["type"]): TestItemDraft {
       content: { call_id: "", name: "", arguments: "" },
     };
   }
-  return {
-    type,
-    clientId,
-    content: { call_id: "", output: "" },
-  };
+  if (type === "function_call_output") {
+    return {
+      type,
+      clientId,
+      content: { call_id: "", output: "" },
+    };
+  }
+  if (type === "anthropic_system") {
+    return {
+      type,
+      clientId,
+      content: { text: "" },
+    };
+  }
+  if (type === "anthropic_message") {
+    return {
+      type,
+      clientId,
+      content: { role: "user", content: "" },
+    };
+  }
+  const _exhaustive: never = type;
+  throw new Error(`Unsupported item type: ${_exhaustive}`);
 }
 
 export function TestItemRow({
@@ -68,12 +81,13 @@ export function TestItemRow({
   isFirst,
   isLast,
   disableRemove,
+  protocol,
   onChange,
   onMoveUp,
   onMoveDown,
   onRemove,
 }: TestItemRowProps) {
-  const direction = getDirection(item);
+  const direction = getTestItemDirection(item);
 
   const borderClass =
     direction === "INPUT" ? "border-l-blue-500" : "border-l-emerald-500";
@@ -126,11 +140,24 @@ export function TestItemRow({
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="message">message</SelectItem>
-              <SelectItem value="function_call">function_call</SelectItem>
-              <SelectItem value="function_call_output">
-                function_call_output
-              </SelectItem>
+              {protocol === "anthropic" ? (
+                <>
+                  <SelectItem value="anthropic_system">
+                    anthropic_system
+                  </SelectItem>
+                  <SelectItem value="anthropic_message">
+                    anthropic_message
+                  </SelectItem>
+                </>
+              ) : (
+                <>
+                  <SelectItem value="message">message</SelectItem>
+                  <SelectItem value="function_call">function_call</SelectItem>
+                  <SelectItem value="function_call_output">
+                    function_call_output
+                  </SelectItem>
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>

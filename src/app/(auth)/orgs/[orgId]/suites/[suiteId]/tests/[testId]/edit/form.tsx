@@ -18,6 +18,7 @@ type EditTestFormProps = {
   name: string;
   description: string | null;
   items: TestItemDraft[];
+  protocol: "openai" | "anthropic";
 };
 
 export function EditTestForm({
@@ -27,6 +28,7 @@ export function EditTestForm({
   name,
   description,
   items,
+  protocol,
 }: EditTestFormProps) {
   const [state, formAction, pending] = useActionState(
     updateTest,
@@ -53,7 +55,11 @@ export function EditTestForm({
       </div>
       <div className="space-y-3">
         <Label>Conversation Items</Label>
-        <TestItemEditor inputName="items" initialItems={items} />
+        <TestItemEditor
+          inputName="items"
+          initialItems={items}
+          protocol={protocol}
+        />
       </div>
       {state?.success === false && state.error ? (
         <p className="text-sm text-destructive">{state.error}</p>

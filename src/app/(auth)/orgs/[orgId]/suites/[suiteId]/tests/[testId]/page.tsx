@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
+import { getProtocolMeta } from "@/lib/protocols";
 import { findTestOrNull } from "@/lib/test-helpers";
 import { mapPrismaItemsToListItems } from "@/lib/test-item-mappers";
 
@@ -36,7 +37,8 @@ export default async function TestDetailPage({
   });
 
   const listItems = mapPrismaItemsToListItems(items);
-  const endpoint = `https://testllm.dev/v1/org/${test.testSuite.org.slug}/suite/${test.testSuite.name}/responses`;
+  const { endpointPath } = getProtocolMeta(test.testSuite.protocol);
+  const endpoint = `https://testllm.dev/v1/org/${test.testSuite.org.slug}/suite/${test.testSuite.name}/${endpointPath}`;
 
   return (
     <div className="space-y-6">

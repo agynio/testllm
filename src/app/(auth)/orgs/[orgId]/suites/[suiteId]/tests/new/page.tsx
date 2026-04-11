@@ -36,7 +36,11 @@ export default async function NewTestPage({
         title="Create Test"
         description="Define a deterministic conversation sequence."
       />
-      <CreateTestForm orgId={orgId} suiteId={suiteId} />
+      <CreateTestForm
+        orgId={orgId}
+        suiteId={suiteId}
+        protocol={suite.protocol}
+      />
     </div>
   );
 }

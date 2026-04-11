@@ -4,6 +4,8 @@ import { authenticatedFetch, createTestUser } from "../helpers/auth";
 import { jsonRequest, managementUrl } from "../helpers/api";
 import { prisma } from "../helpers/prisma";
 import {
+  anthropicSimpleSequence,
+  anthropicToolSequence,
   simpleMessageSequence,
   weatherSequence,
 } from "../helpers/fixtures";
@@ -44,6 +46,24 @@ describe("management api tests", () => {
     expect(body.items.map((item: { position: number }) => item.position)).toEqual(
       weatherSequence.map((_, index) => index)
     );
+  });
+
+  it("creates anthropic tests with system and messages", async () => {
+    const admin = await createTestUser();
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id, {
+      name: "anthropic-suite",
+      protocol: "anthropic",
+    });
+
+    const { response, body } = await createTest(admin, org.id, suite.id, {
+      name: "anthropic-test",
+      items: anthropicSimpleSequence,
+    });
+
+    expect(response.status).toBe(201);
+    expect(body.items).toHaveLength(anthropicSimpleSequence.length);
+    expect(body.items[0].type).toBe("anthropic_system");
   });
 
   it("rejects duplicate test names", async () => {
@@ -194,6 +214,66 @@ describe("management api tests", () => {
     const body = await response.json();
     expect(body.items).toHaveLength(weatherSequence.length);
     expect(body.items[0].content.role).toBe("system");
+  });
+
+  it("updates anthropic tests with new items", async () => {
+    const admin = await createTestUser();
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id, {
+      name: "anthropic-update",
+      protocol: "anthropic",
+    });
+    const { body: test } = await createTest(admin, org.id, suite.id, {
+      name: "anthropic-items",
+      items: anthropicSimpleSequence,
+    });
+
+    const response = await authenticatedFetch(
+      managementUrl(`/orgs/${org.id}/suites/${suite.id}/tests/${test.id}`),
+      {
+        method: "PATCH",
+        ...jsonRequest({ items: anthropicToolSequence }),
+      },
+      admin
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.items).toHaveLength(anthropicToolSequence.length);
+    expect(body.items[0].type).toBe("anthropic_system");
+  });
+
+  it("rejects openai items in anthropic suites", async () => {
+    const admin = await createTestUser();
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id, {
+      name: "anthropic-reject-openai",
+      protocol: "anthropic",
+    });
+
+    const { response, body } = await createTest(admin, org.id, suite.id, {
+      name: "openai-items",
+      items: simpleMessageSequence,
+    });
+
+    expect(response.status).toBe(400);
+    expect(body.error).toMatchObject({ code: "invalid_request" });
+  });
+
+  it("rejects anthropic items in openai suites", async () => {
+    const admin = await createTestUser();
+    const { body: org } = await createOrg(admin);
+    const { body: suite } = await createSuite(admin, org.id, {
+      name: "openai-reject-anthropic",
+    });
+
+    const { response, body } = await createTest(admin, org.id, suite.id, {
+      name: "anthropic-items",
+      items: anthropicSimpleSequence,
+    });
+
+    expect(response.status).toBe(400);
+    expect(body.error).toMatchObject({ code: "invalid_request" });
   });
 
   it("rejects test renames that conflict", async () => {

@@ -32,6 +32,7 @@ export async function createSuite(
   const parsed = CreateSuiteSchema.safeParse({
     name: getFormValue(formData, "name"),
     description: getFormValue(formData, "description"),
+    protocol: getFormValue(formData, "protocol"),
   });
 
   if (!parsed.success) {
@@ -45,6 +46,7 @@ export async function createSuite(
         orgId,
         name: parsed.data.name,
         description: parsed.data.description,
+        protocol: parsed.data.protocol,
       },
     });
 

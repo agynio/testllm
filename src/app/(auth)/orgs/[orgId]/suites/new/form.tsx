@@ -7,6 +7,13 @@ import { createSuite } from "@/actions/suites";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 type CreateSuiteFormProps = {
@@ -14,6 +21,9 @@ type CreateSuiteFormProps = {
 };
 
 export function CreateSuiteForm({ orgId }: CreateSuiteFormProps) {
+  const [protocol, setProtocol] = React.useState<"openai" | "anthropic">(
+    "openai"
+  );
   const [state, formAction, pending] = useActionState(
     createSuite,
     null
@@ -39,6 +49,24 @@ export function CreateSuiteForm({ orgId }: CreateSuiteFormProps) {
           placeholder="Weather agent test scenarios"
           className="min-h-[110px]"
         />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="suite-protocol">Protocol</Label>
+        <Select
+          value={protocol}
+          onValueChange={(value) =>
+            setProtocol(value as "openai" | "anthropic")
+          }
+        >
+          <SelectTrigger id="suite-protocol" className="w-full">
+            <SelectValue placeholder="Select protocol" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="openai">OpenAI</SelectItem>
+            <SelectItem value="anthropic">Anthropic</SelectItem>
+          </SelectContent>
+        </Select>
+        <input name="protocol" type="hidden" value={protocol} />
       </div>
       {state?.success === false && state.error ? (
         <p className="text-sm text-destructive">{state.error}</p>

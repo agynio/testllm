@@ -13,6 +13,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type {
+  AnthropicContentBlock,
+  AnthropicMessageContent,
+  AnthropicSystemContent,
+  AnthropicTextBlock,
   MessageContent,
   TestItemDraft,
 } from "@/components/test-item-editor/types";
@@ -22,7 +26,101 @@ type ItemContentFieldsProps = {
   onChange: (item: TestItemDraft) => void;
 };
 
+function textToBlocks(text: string) {
+  if (!text) return [] as AnthropicContentBlock[];
+  return [{ type: "text", text }] as AnthropicContentBlock[];
+}
+
+function isTextBlock(block: AnthropicContentBlock): block is AnthropicTextBlock {
+  return block.type === "text";
+}
+
+function hasSystemBlocks(
+  content: AnthropicSystemContent
+): content is { blocks: AnthropicContentBlock[] } {
+  return "blocks" in content;
+}
+
+function isMessageBlocks(
+  content: AnthropicMessageContent["content"]
+): content is AnthropicContentBlock[] {
+  return Array.isArray(content);
+}
+
+function isContentBlock(value: unknown): value is AnthropicContentBlock {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  if (record.type === "text") {
+    return typeof record.text === "string";
+  }
+  if (record.type === "tool_use") {
+    return typeof record.id === "string" && typeof record.name === "string";
+  }
+  if (record.type === "tool_result") {
+    return typeof record.tool_use_id === "string";
+  }
+  return false;
+}
+
+function blocksToText(blocks: AnthropicContentBlock[]) {
+  if (!blocks.every(isTextBlock)) return null;
+  return blocks.map((block) => block.text).join("\n");
+}
+
+function parseBlocksInput(value: string) {
+  if (!value.trim()) return [] as AnthropicContentBlock[];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return null;
+    const blocks = parsed.filter(isContentBlock);
+    if (blocks.length !== parsed.length) return null;
+    return blocks;
+  } catch {
+    return null;
+  }
+}
+
+function stringifyBlocks(blocks: AnthropicContentBlock[]) {
+  return JSON.stringify(blocks, null, 2);
+}
+
 export function ItemContentFields({ item, onChange }: ItemContentFieldsProps) {
+  const [systemBlocksValue, setSystemBlocksValue] = React.useState(() => {
+    if (item.type !== "anthropic_system") return "";
+    if (hasSystemBlocks(item.content)) {
+      return stringifyBlocks(item.content.blocks);
+    }
+    return stringifyBlocks(textToBlocks(item.content.text));
+  });
+
+  const [messageBlocksValue, setMessageBlocksValue] = React.useState(() => {
+    if (item.type !== "anthropic_message") return "";
+    if (isMessageBlocks(item.content.content)) {
+      return stringifyBlocks(item.content.content);
+    }
+    return stringifyBlocks(textToBlocks(item.content.content));
+  });
+
+  const systemBlocks =
+    item.type === "anthropic_system" && hasSystemBlocks(item.content)
+      ? item.content.blocks
+      : null;
+
+  const messageBlocks =
+    item.type === "anthropic_message" && isMessageBlocks(item.content.content)
+      ? item.content.content
+      : null;
+
+  React.useEffect(() => {
+    if (!systemBlocks) return;
+    setSystemBlocksValue(stringifyBlocks(systemBlocks));
+  }, [systemBlocks]);
+
+  React.useEffect(() => {
+    if (!messageBlocks) return;
+    setMessageBlocksValue(stringifyBlocks(messageBlocks));
+  }, [messageBlocks]);
+
   if (item.type === "message") {
     const wildcardDisabled = item.content.role === "assistant";
     const anyRole = !wildcardDisabled && Boolean(item.content.any_role);
@@ -124,6 +222,205 @@ export function ItemContentFields({ item, onChange }: ItemContentFieldsProps) {
             placeholder="Message content"
             className="min-h-[90px]"
           />
+        </div>
+      </div>
+    );
+  }
+
+  if (item.type === "anthropic_system") {
+    let blocks: AnthropicContentBlock[] = [];
+    let usesBlocks = false;
+    let textValue = "";
+
+    if (hasSystemBlocks(item.content)) {
+      usesBlocks = true;
+      blocks = item.content.blocks;
+    } else {
+      textValue = item.content.text;
+      blocks = textToBlocks(item.content.text);
+    }
+    const canSwitchToText = blocksToText(blocks) !== null;
+    const toggleId = `${item.clientId}-system-json`;
+
+    return (
+      <div className="grid gap-3">
+        <div className="flex items-center justify-between">
+          <Label>System Prompt</Label>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id={toggleId}
+              checked={usesBlocks}
+              disabled={usesBlocks && !canSwitchToText}
+              onCheckedChange={(checked) => {
+                if (checked) {
+                  setSystemBlocksValue(stringifyBlocks(blocks));
+                  onChange({
+                    ...item,
+                    content: { blocks },
+                  });
+                  return;
+                }
+                const textValue = blocksToText(blocks);
+                if (textValue === null) return;
+                onChange({
+                  ...item,
+                  content: { text: textValue },
+                });
+              }}
+            />
+            <Label htmlFor={toggleId} className="text-xs text-muted-foreground">
+              JSON
+            </Label>
+          </div>
+        </div>
+        {usesBlocks ? (
+          <Textarea
+            value={systemBlocksValue}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              setSystemBlocksValue(nextValue);
+              const parsed = parseBlocksInput(nextValue);
+              if (!parsed) return;
+              onChange({
+                ...item,
+                content: { blocks: parsed },
+              });
+            }}
+            placeholder='[{"type":"text","text":"System prompt"}]'
+            className="min-h-[110px] font-mono"
+          />
+        ) : (
+          <Textarea
+            value={textValue}
+            onChange={(event) =>
+              onChange({
+                ...item,
+                content: { text: event.target.value },
+              })
+            }
+            placeholder="System prompt"
+            className="min-h-[90px]"
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (item.type === "anthropic_message") {
+    let blocks: AnthropicContentBlock[] = [];
+    let usesBlocks = false;
+
+    if (isMessageBlocks(item.content.content)) {
+      usesBlocks = true;
+      blocks = item.content.content;
+    } else {
+      blocks = textToBlocks(item.content.content);
+    }
+    const canSwitchToText = blocksToText(blocks) !== null;
+    const toggleId = `${item.clientId}-message-json`;
+
+    return (
+      <div className="grid gap-3">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Role</Label>
+            <Select
+              value={item.content.role}
+              onValueChange={(value) =>
+                onChange({
+                  ...item,
+                  content: {
+                    ...item.content,
+                    role: value as AnthropicMessageContent["role"],
+                  },
+                })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">user</SelectItem>
+                <SelectItem value="assistant">assistant</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>Content</Label>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id={toggleId}
+                checked={usesBlocks}
+                disabled={usesBlocks && !canSwitchToText}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setMessageBlocksValue(stringifyBlocks(blocks));
+                    onChange({
+                      ...item,
+                      content: {
+                        ...item.content,
+                        content: blocks,
+                      },
+                    });
+                    return;
+                  }
+                  const textValue = blocksToText(blocks);
+                  if (textValue === null) return;
+                  onChange({
+                    ...item,
+                    content: {
+                      ...item.content,
+                      content: textValue,
+                    },
+                  });
+                }}
+              />
+              <Label htmlFor={toggleId} className="text-xs text-muted-foreground">
+                JSON
+              </Label>
+            </div>
+          </div>
+          {usesBlocks ? (
+            <Textarea
+              value={messageBlocksValue}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setMessageBlocksValue(nextValue);
+                const parsed = parseBlocksInput(nextValue);
+                if (!parsed) return;
+                onChange({
+                  ...item,
+                  content: {
+                    ...item.content,
+                    content: parsed,
+                  },
+                });
+              }}
+              placeholder='[{"type":"text","text":"Message"}]'
+              className="min-h-[120px] font-mono"
+            />
+          ) : (
+            <Textarea
+              value={
+                typeof item.content.content === "string"
+                  ? item.content.content
+                  : ""
+              }
+              onChange={(event) =>
+                onChange({
+                  ...item,
+                  content: {
+                    ...item.content,
+                    content: event.target.value,
+                  },
+                })
+              }
+              placeholder="Message content"
+              className="min-h-[90px]"
+            />
+          )}
         </div>
       </div>
     );

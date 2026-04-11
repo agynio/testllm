@@ -50,6 +50,7 @@ export default async function EditTestPage({
         name={test.name}
         description={test.description}
         items={initialItems}
+        protocol={test.testSuite.protocol}
       />
     </div>
   );

@@ -9,6 +9,7 @@ import type { TestItemDraft } from "@/components/test-item-editor/types";
 type TestItemEditorProps = {
   initialItems?: TestItemDraft[];
   inputName: string;
+  protocol: "openai" | "anthropic";
 };
 
 function createMessageItem(): TestItemDraft {
@@ -35,12 +36,32 @@ function createFunctionCallOutputItem(): TestItemDraft {
   };
 }
 
+function createAnthropicSystemItem(): TestItemDraft {
+  return {
+    type: "anthropic_system",
+    clientId: crypto.randomUUID(),
+    content: { text: "" },
+  };
+}
+
+function createAnthropicMessageItem(): TestItemDraft {
+  return {
+    type: "anthropic_message",
+    clientId: crypto.randomUUID(),
+    content: { role: "user", content: "" },
+  };
+}
+
 export function TestItemEditor({
   initialItems,
   inputName,
+  protocol,
 }: TestItemEditorProps) {
   const [items, setItems] = React.useState<TestItemDraft[]>(() => {
     if (initialItems && initialItems.length > 0) return initialItems;
+    if (protocol === "anthropic") {
+      return [createAnthropicMessageItem()];
+    }
     return [createMessageItem()];
   });
 
@@ -87,6 +108,7 @@ export function TestItemEditor({
           isFirst={index === 0}
           isLast={index === items.length - 1}
           disableRemove={items.length === 1}
+          protocol={protocol}
           onChange={(updated) => updateItem(index, updated)}
           onMoveUp={() => moveItem(index, index - 1)}
           onMoveDown={() => moveItem(index, index + 1)}
@@ -95,34 +117,63 @@ export function TestItemEditor({
       ))}
 
       <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setItems((current) => [...current, createMessageItem()])}
-        >
-          <Plus className="size-4" /> Add Message
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            setItems((current) => [...current, createFunctionCallItem()])
-          }
-        >
-          <Plus className="size-4" /> Add Function Call
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            setItems((current) => [...current, createFunctionCallOutputItem()])
-          }
-        >
-          <Plus className="size-4" /> Add Output
-        </Button>
+        {protocol === "anthropic" ? (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setItems((current) => [...current, createAnthropicSystemItem()])
+              }
+            >
+              <Plus className="size-4" /> Add System Prompt
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setItems((current) => [...current, createAnthropicMessageItem()])
+              }
+            >
+              <Plus className="size-4" /> Add Message
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setItems((current) => [...current, createMessageItem()])
+              }
+            >
+              <Plus className="size-4" /> Add Message
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setItems((current) => [...current, createFunctionCallItem()])
+              }
+            >
+              <Plus className="size-4" /> Add Function Call
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setItems((current) => [...current, createFunctionCallOutputItem()])
+              }
+            >
+              <Plus className="size-4" /> Add Output
+            </Button>
+          </>
+        )}
       </div>
 
       <input name={inputName} type="hidden" value={serializedItems} />
