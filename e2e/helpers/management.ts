@@ -30,7 +30,11 @@ export async function createOrg(user: User, options: CreateOrgOptions = {}) {
   return { response, body };
 }
 
-type SuitePayload = { name: string; description?: string };
+type SuitePayload = {
+  name: string;
+  description?: string;
+  protocol?: "openai" | "anthropic";
+};
 
 export async function createSuite(
   user: User,

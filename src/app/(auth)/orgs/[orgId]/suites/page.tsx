@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -52,6 +53,7 @@ export default async function SuitesPage({
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
+              <TableHead>Protocol</TableHead>
               <TableHead className="text-right">Tests</TableHead>
             </TableRow>
           </TableHeader>
@@ -68,6 +70,11 @@ export default async function SuitesPage({
                 </TableCell>
                 <TableCell className="max-w-[360px] truncate text-muted-foreground">
                   {suite.description || "—"}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="secondary">
+                    {suite.protocol === "anthropic" ? "Anthropic" : "OpenAI"}
+                  </Badge>
                 </TableCell>
                 <TableCell className="text-right">
                   {suite._count.tests}

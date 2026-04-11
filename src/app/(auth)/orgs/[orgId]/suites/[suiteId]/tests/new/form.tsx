@@ -13,9 +13,14 @@ import { Textarea } from "@/components/ui/textarea";
 type CreateTestFormProps = {
   orgId: string;
   suiteId: string;
+  protocol: "openai" | "anthropic";
 };
 
-export function CreateTestForm({ orgId, suiteId }: CreateTestFormProps) {
+export function CreateTestForm({
+  orgId,
+  suiteId,
+  protocol,
+}: CreateTestFormProps) {
   const [state, formAction, pending] = useActionState(
     createTest,
     null
@@ -40,7 +45,7 @@ export function CreateTestForm({ orgId, suiteId }: CreateTestFormProps) {
       </div>
       <div className="space-y-3">
         <Label>Conversation Items</Label>
-        <TestItemEditor inputName="items" />
+        <TestItemEditor inputName="items" protocol={protocol} />
       </div>
       {state?.success === false && state.error ? (
         <p className="text-sm text-destructive">{state.error}</p>

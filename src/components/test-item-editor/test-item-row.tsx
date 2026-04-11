@@ -26,6 +26,7 @@ type TestItemRowProps = {
   isFirst: boolean;
   isLast: boolean;
   disableRemove: boolean;
+  protocol: "openai" | "anthropic";
   onChange: (item: TestItemDraft) => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
@@ -34,6 +35,10 @@ type TestItemRowProps = {
 
 function getDirection(item: TestItemDraft) {
   if (item.type === "message") {
+    return item.content.role === "assistant" ? "OUTPUT" : "INPUT";
+  }
+  if (item.type === "anthropic_system") return "INPUT";
+  if (item.type === "anthropic_message") {
     return item.content.role === "assistant" ? "OUTPUT" : "INPUT";
   }
   return item.type === "function_call" ? "OUTPUT" : "INPUT";
@@ -55,10 +60,24 @@ function getDefaultContent(type: TestItemDraft["type"]): TestItemDraft {
       content: { call_id: "", name: "", arguments: "" },
     };
   }
+  if (type === "function_call_output") {
+    return {
+      type,
+      clientId,
+      content: { call_id: "", output: "" },
+    };
+  }
+  if (type === "anthropic_system") {
+    return {
+      type,
+      clientId,
+      content: { text: "" },
+    };
+  }
   return {
     type,
     clientId,
-    content: { call_id: "", output: "" },
+    content: { role: "user", content: "" },
   };
 }
 
@@ -68,6 +87,7 @@ export function TestItemRow({
   isFirst,
   isLast,
   disableRemove,
+  protocol,
   onChange,
   onMoveUp,
   onMoveDown,
@@ -126,11 +146,24 @@ export function TestItemRow({
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="message">message</SelectItem>
-              <SelectItem value="function_call">function_call</SelectItem>
-              <SelectItem value="function_call_output">
-                function_call_output
-              </SelectItem>
+              {protocol === "anthropic" ? (
+                <>
+                  <SelectItem value="anthropic_system">
+                    anthropic_system
+                  </SelectItem>
+                  <SelectItem value="anthropic_message">
+                    anthropic_message
+                  </SelectItem>
+                </>
+              ) : (
+                <>
+                  <SelectItem value="message">message</SelectItem>
+                  <SelectItem value="function_call">function_call</SelectItem>
+                  <SelectItem value="function_call_output">
+                    function_call_output
+                  </SelectItem>
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>

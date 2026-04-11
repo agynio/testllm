@@ -8,6 +8,7 @@ import { ExportSuiteButton } from "@/components/export-suite-button";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -47,7 +48,13 @@ export default async function SuiteDetailPage({
     include: { _count: { select: { items: true } } },
   });
 
-  const endpoint = `https://testllm.dev/v1/org/${suite.org.slug}/suite/${suite.name}/responses`;
+  const protocolLabel = suite.protocol === "anthropic" ? "Anthropic" : "OpenAI";
+  const endpointPath = suite.protocol === "anthropic" ? "messages" : "responses";
+  const endpointTitle =
+    suite.protocol === "anthropic"
+      ? "Messages API Endpoint"
+      : "Responses API Endpoint";
+  const endpoint = `https://testllm.dev/v1/org/${suite.org.slug}/suite/${suite.name}/${endpointPath}`;
 
   return (
     <div className="space-y-6">
@@ -85,6 +92,10 @@ export default async function SuiteDetailPage({
           </div>
         }
       />
+
+      <div>
+        <Badge variant="secondary">{protocolLabel}</Badge>
+      </div>
 
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
@@ -143,7 +154,7 @@ export default async function SuiteDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Responses API Endpoint</CardTitle>
+          <CardTitle>{endpointTitle}</CardTitle>
           <CardDescription>
             Use this endpoint when configuring your agent.
           </CardDescription>

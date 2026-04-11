@@ -8,7 +8,12 @@ import { getFormValue, requireMembership } from "@/actions/helpers";
 import type { ActionResult } from "@/actions/types";
 import { prisma } from "@/lib/prisma";
 import { findSuiteOrNull, findTestOrNull } from "@/lib/test-helpers";
-import { CreateTestSchema, UpdateTestSchema } from "@/lib/schemas/test-items";
+import {
+  CreateAnthropicTestSchema,
+  CreateTestSchema,
+  UpdateAnthropicTestSchema,
+  UpdateTestSchema,
+} from "@/lib/schemas/test-items";
 
 function parseItems(raw: string | undefined) {
   if (!raw) {
@@ -52,7 +57,11 @@ export async function createTest(
     return { success: false, error: itemsResult.error };
   }
 
-  const parsed = CreateTestSchema.safeParse({
+  const createSchema =
+    suite.protocol === "anthropic"
+      ? CreateAnthropicTestSchema
+      : CreateTestSchema;
+  const parsed = createSchema.safeParse({
     name: getFormValue(formData, "name"),
     description: getFormValue(formData, "description"),
     items: itemsResult.value,
@@ -73,7 +82,7 @@ export async function createTest(
           create: parsed.data.items.map((item, index) => ({
             position: index,
             type: item.type,
-            content: item.content,
+            content: item.content as Prisma.InputJsonValue,
           })),
         },
       },
@@ -130,7 +139,11 @@ export async function updateTest(
     return { success: false, error: itemsResult.error };
   }
 
-  const parsed = UpdateTestSchema.safeParse({
+  const updateSchema =
+    test.testSuite.protocol === "anthropic"
+      ? UpdateAnthropicTestSchema
+      : UpdateTestSchema;
+  const parsed = updateSchema.safeParse({
     name: getFormValue(formData, "name"),
     description: getFormValue(formData, "description"),
     items: itemsResult.value,
@@ -169,7 +182,7 @@ export async function updateTest(
                 create: parsed.data.items.map((item, index) => ({
                   position: index,
                   type: item.type,
-                  content: item.content,
+                  content: item.content as Prisma.InputJsonValue,
                 })),
               },
             }

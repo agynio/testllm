@@ -36,7 +36,9 @@ export default async function TestDetailPage({
   });
 
   const listItems = mapPrismaItemsToListItems(items);
-  const endpoint = `https://testllm.dev/v1/org/${test.testSuite.org.slug}/suite/${test.testSuite.name}/responses`;
+  const endpointPath =
+    test.testSuite.protocol === "anthropic" ? "messages" : "responses";
+  const endpoint = `https://testllm.dev/v1/org/${test.testSuite.org.slug}/suite/${test.testSuite.name}/${endpointPath}`;
 
   return (
     <div className="space-y-6">

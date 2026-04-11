@@ -1,5 +1,7 @@
 import type { TestItem } from "@prisma/client";
 import type {
+  AnthropicMessageContent,
+  AnthropicSystemContent,
   FunctionCallContent,
   FunctionCallOutputContent,
   MessageContent,
@@ -34,6 +36,20 @@ export function mapPrismaItemsToListItems(
         content: item.content as FunctionCallOutputContent,
       };
     }
+    if (item.type === "anthropic_system") {
+      return {
+        id: item.id,
+        type: "anthropic_system",
+        content: item.content as AnthropicSystemContent,
+      };
+    }
+    if (item.type === "anthropic_message") {
+      return {
+        id: item.id,
+        type: "anthropic_message",
+        content: item.content as AnthropicMessageContent,
+      };
+    }
     throw new Error("Unsupported test item type");
   });
 }
@@ -63,6 +79,20 @@ export function mapPrismaItemsToDrafts(
         clientId,
         type: "function_call_output",
         content: item.content as FunctionCallOutputContent,
+      };
+    }
+    if (item.type === "anthropic_system") {
+      return {
+        clientId,
+        type: "anthropic_system",
+        content: item.content as AnthropicSystemContent,
+      };
+    }
+    if (item.type === "anthropic_message") {
+      return {
+        clientId,
+        type: "anthropic_message",
+        content: item.content as AnthropicMessageContent,
       };
     }
     throw new Error("Unsupported test item type");
