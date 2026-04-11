@@ -25,6 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { prisma } from "@/lib/prisma";
+import { getProtocolMeta } from "@/lib/protocols";
 
 export default async function SuiteDetailPage({
   params,
@@ -48,12 +49,8 @@ export default async function SuiteDetailPage({
     include: { _count: { select: { items: true } } },
   });
 
-  const protocolLabel = suite.protocol === "anthropic" ? "Anthropic" : "OpenAI";
-  const endpointPath = suite.protocol === "anthropic" ? "messages" : "responses";
-  const endpointTitle =
-    suite.protocol === "anthropic"
-      ? "Messages API Endpoint"
-      : "Responses API Endpoint";
+  const { label: protocolLabel, endpointPath, endpointTitle } =
+    getProtocolMeta(suite.protocol);
   const endpoint = `https://testllm.dev/v1/org/${suite.org.slug}/suite/${suite.name}/${endpointPath}`;
 
   return (

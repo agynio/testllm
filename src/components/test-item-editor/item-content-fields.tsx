@@ -47,6 +47,21 @@ function isMessageBlocks(
   return Array.isArray(content);
 }
 
+function isContentBlock(value: unknown): value is AnthropicContentBlock {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  if (record.type === "text") {
+    return typeof record.text === "string";
+  }
+  if (record.type === "tool_use") {
+    return typeof record.id === "string" && typeof record.name === "string";
+  }
+  if (record.type === "tool_result") {
+    return typeof record.tool_use_id === "string";
+  }
+  return false;
+}
+
 function blocksToText(blocks: AnthropicContentBlock[]) {
   if (!blocks.every(isTextBlock)) return null;
   return blocks.map((block) => block.text).join("\n");
@@ -56,7 +71,10 @@ function parseBlocksInput(value: string) {
   if (!value.trim()) return [] as AnthropicContentBlock[];
   try {
     const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? (parsed as AnthropicContentBlock[]) : null;
+    if (!Array.isArray(parsed)) return null;
+    const blocks = parsed.filter(isContentBlock);
+    if (blocks.length !== parsed.length) return null;
+    return blocks;
   } catch {
     return null;
   }
@@ -69,31 +87,39 @@ function stringifyBlocks(blocks: AnthropicContentBlock[]) {
 export function ItemContentFields({ item, onChange }: ItemContentFieldsProps) {
   const [systemBlocksValue, setSystemBlocksValue] = React.useState(() => {
     if (item.type !== "anthropic_system") return "";
-    if ("blocks" in item.content) return stringifyBlocks(item.content.blocks);
+    if (hasSystemBlocks(item.content)) {
+      return stringifyBlocks(item.content.blocks);
+    }
     return stringifyBlocks(textToBlocks(item.content.text));
   });
 
   const [messageBlocksValue, setMessageBlocksValue] = React.useState(() => {
     if (item.type !== "anthropic_message") return "";
-    if (Array.isArray(item.content.content)) {
+    if (isMessageBlocks(item.content.content)) {
       return stringifyBlocks(item.content.content);
     }
     return stringifyBlocks(textToBlocks(item.content.content));
   });
 
-  React.useEffect(() => {
-    if (item.type !== "anthropic_system") return;
-    if ("blocks" in item.content) {
-      setSystemBlocksValue(stringifyBlocks(item.content.blocks));
-    }
-  }, [item]);
+  const systemBlocks =
+    item.type === "anthropic_system" && hasSystemBlocks(item.content)
+      ? item.content.blocks
+      : null;
+
+  const messageBlocks =
+    item.type === "anthropic_message" && isMessageBlocks(item.content.content)
+      ? item.content.content
+      : null;
 
   React.useEffect(() => {
-    if (item.type !== "anthropic_message") return;
-    if (Array.isArray(item.content.content)) {
-      setMessageBlocksValue(stringifyBlocks(item.content.content));
-    }
-  }, [item]);
+    if (!systemBlocks) return;
+    setSystemBlocksValue(stringifyBlocks(systemBlocks));
+  }, [systemBlocks]);
+
+  React.useEffect(() => {
+    if (!messageBlocks) return;
+    setMessageBlocksValue(stringifyBlocks(messageBlocks));
+  }, [messageBlocks]);
 
   if (item.type === "message") {
     const wildcardDisabled = item.content.role === "assistant";

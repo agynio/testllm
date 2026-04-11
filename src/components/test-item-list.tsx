@@ -6,6 +6,7 @@ import type {
   AnthropicContentBlock,
   TestItemListItem,
 } from "@/components/test-item-editor/types";
+import { getTestItemDirection } from "@/components/test-item-editor/utils";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -83,17 +84,6 @@ function renderBlocks(blocks: AnthropicContentBlock[]) {
   );
 }
 
-function getDirection(item: TestItemListItem) {
-  if (item.type === "message") {
-    return item.content.role === "assistant" ? "OUTPUT" : "INPUT";
-  }
-  if (item.type === "anthropic_system") return "INPUT";
-  if (item.type === "anthropic_message") {
-    return item.content.role === "assistant" ? "OUTPUT" : "INPUT";
-  }
-  return item.type === "function_call" ? "OUTPUT" : "INPUT";
-}
-
 function getPreview(item: TestItemListItem) {
   if (item.type === "message") {
     return item.content.any_content ? "<any content>" : item.content.content;
@@ -138,7 +128,7 @@ export function TestItemList({ items }: TestItemListProps) {
       {items.map((item, index) => {
         const id = item.id ?? `${index}`;
         const expanded = openId === id;
-        const direction = getDirection(item);
+        const direction = getTestItemDirection(item);
         const preview = getPreview(item);
         const metaLabel = getMetaLabel(item);
 

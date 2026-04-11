@@ -46,7 +46,7 @@ export async function createSuite(
         orgId,
         name: parsed.data.name,
         description: parsed.data.description,
-        protocol: parsed.data.protocol ?? "openai",
+        protocol: parsed.data.protocol,
       },
     });
 

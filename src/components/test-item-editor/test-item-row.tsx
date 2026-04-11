@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ItemContentFields } from "@/components/test-item-editor/item-content-fields";
+import { getTestItemDirection } from "@/components/test-item-editor/utils";
 import type { TestItemDraft } from "@/components/test-item-editor/types";
 
 type TestItemRowProps = {
@@ -32,17 +33,6 @@ type TestItemRowProps = {
   onMoveDown: () => void;
   onRemove: () => void;
 };
-
-function getDirection(item: TestItemDraft) {
-  if (item.type === "message") {
-    return item.content.role === "assistant" ? "OUTPUT" : "INPUT";
-  }
-  if (item.type === "anthropic_system") return "INPUT";
-  if (item.type === "anthropic_message") {
-    return item.content.role === "assistant" ? "OUTPUT" : "INPUT";
-  }
-  return item.type === "function_call" ? "OUTPUT" : "INPUT";
-}
 
 function getDefaultContent(type: TestItemDraft["type"]): TestItemDraft {
   const clientId = crypto.randomUUID();
@@ -74,11 +64,15 @@ function getDefaultContent(type: TestItemDraft["type"]): TestItemDraft {
       content: { text: "" },
     };
   }
-  return {
-    type,
-    clientId,
-    content: { role: "user", content: "" },
-  };
+  if (type === "anthropic_message") {
+    return {
+      type,
+      clientId,
+      content: { role: "user", content: "" },
+    };
+  }
+  const _exhaustive: never = type;
+  throw new Error(`Unsupported item type: ${_exhaustive}`);
 }
 
 export function TestItemRow({
@@ -93,7 +87,7 @@ export function TestItemRow({
   onMoveDown,
   onRemove,
 }: TestItemRowProps) {
-  const direction = getDirection(item);
+  const direction = getTestItemDirection(item);
 
   const borderClass =
     direction === "INPUT" ? "border-l-blue-500" : "border-l-emerald-500";

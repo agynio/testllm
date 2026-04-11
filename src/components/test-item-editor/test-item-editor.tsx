@@ -9,7 +9,7 @@ import type { TestItemDraft } from "@/components/test-item-editor/types";
 type TestItemEditorProps = {
   initialItems?: TestItemDraft[];
   inputName: string;
-  protocol?: "openai" | "anthropic";
+  protocol: "openai" | "anthropic";
 };
 
 function createMessageItem(): TestItemDraft {
@@ -55,7 +55,7 @@ function createAnthropicMessageItem(): TestItemDraft {
 export function TestItemEditor({
   initialItems,
   inputName,
-  protocol = "openai",
+  protocol,
 }: TestItemEditorProps) {
   const [items, setItems] = React.useState<TestItemDraft[]>(() => {
     if (initialItems && initialItems.length > 0) return initialItems;
