@@ -27,13 +27,18 @@ export const SystemSchema = z.union([
 ]);
 
 const StoredSystemContentSchema = z.union([
-  z.object({ text: z.string() }).passthrough(),
-  z.object({ blocks: z.array(ContentBlockSchema) }).passthrough(),
+  z
+    .object({ text: z.string(), any_content: z.boolean().optional() })
+    .passthrough(),
+  z
+    .object({ blocks: z.array(ContentBlockSchema), any_content: z.boolean().optional() })
+    .passthrough(),
 ]);
 
 const StoredMessageContentSchema = z.object({
   role: z.enum(["user", "assistant"]),
   content: MessageContentSchema,
+  any_content: z.boolean().optional(),
 });
 
 const TestItemRecordSchema = z.discriminatedUnion("type", [
@@ -219,20 +224,24 @@ export function matchInput(
       if (!input.system) {
         return mismatch(item.position, "expected system prompt, got none");
       }
-      const expectedBlocks = normalizeStoredSystem(item);
-      const actualBlocks = input.system.blocks;
-      if (!blocksEqual(expectedBlocks, actualBlocks)) {
-        return mismatch(
-          item.position,
-          `expected system content ${formatBlocks(expectedBlocks)}, ` +
-            `got ${formatBlocks(actualBlocks)}`
-        );
+      const anyContent = item.content.any_content === true;
+      if (!anyContent) {
+        const expectedBlocks = normalizeStoredSystem(item);
+        const actualBlocks = input.system.blocks;
+        if (!blocksEqual(expectedBlocks, actualBlocks)) {
+          return mismatch(
+            item.position,
+            `expected system content ${formatBlocks(expectedBlocks)}, ` +
+              `got ${formatBlocks(actualBlocks)}`
+          );
+        }
       }
       systemMatched = true;
       continue;
     }
 
     const expectedMessage = normalizeStoredMessage(item.content);
+    const anyContent = item.content.any_content === true;
 
     if (expectedMessage.role === "user") {
       if (messageIndex >= input.messages.length) {
@@ -247,7 +256,7 @@ export function matchInput(
         );
       }
 
-      if (!blocksEqual(expectedMessage.content, actual.content)) {
+      if (!anyContent && !blocksEqual(expectedMessage.content, actual.content)) {
         return mismatch(
           item.position,
           `expected content ${formatBlocks(expectedMessage.content)}, ` +
@@ -271,7 +280,7 @@ export function matchInput(
       );
     }
 
-    if (!blocksEqual(expectedMessage.content, actual.content)) {
+    if (!anyContent && !blocksEqual(expectedMessage.content, actual.content)) {
       return mismatch(
         item.position,
         `expected content ${formatBlocks(expectedMessage.content)}, ` +

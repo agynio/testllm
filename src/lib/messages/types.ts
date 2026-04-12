@@ -23,12 +23,13 @@ export interface ToolResultBlock extends Prisma.InputJsonObject {
 export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock;
 
 export type SystemContent =
-  | { text: string }
-  | { blocks: ContentBlock[] };
+  | { text: string; any_content?: boolean }
+  | { blocks: ContentBlock[]; any_content?: boolean };
 
 export interface MessageContent {
   role: MessageRole;
   content: string | ContentBlock[];
+  any_content?: boolean;
 }
 
 export interface BaseTestItemRecord {

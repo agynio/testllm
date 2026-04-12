@@ -47,13 +47,18 @@ const TestItemSchema = z.union([
 ]);
 
 const AnthropicSystemContentSchema = z.union([
-  z.object({ text: z.string() }).passthrough(),
-  z.object({ blocks: z.array(ContentBlockSchema) }).passthrough(),
+  z
+    .object({ text: z.string(), any_content: z.boolean().optional() })
+    .passthrough(),
+  z
+    .object({ blocks: z.array(ContentBlockSchema), any_content: z.boolean().optional() })
+    .passthrough(),
 ]);
 
 const AnthropicMessageContentSchema = z.object({
   role: z.enum(["user", "assistant"]),
   content: z.union([z.string(), z.array(ContentBlockSchema)]),
+  any_content: z.boolean().optional(),
 });
 
 const AnthropicSystemItemSchema = z.object({
