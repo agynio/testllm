@@ -43,12 +43,13 @@ export type AnthropicContentBlock =
   | AnthropicToolResultBlock;
 
 export type AnthropicSystemContent =
-  | { text: string }
-  | { blocks: AnthropicContentBlock[] };
+  | { text: string; any_content?: boolean }
+  | { blocks: AnthropicContentBlock[]; any_content?: boolean };
 
 export type AnthropicMessageContent = {
   role: "user" | "assistant";
   content: string | AnthropicContentBlock[];
+  any_content?: boolean;
 };
 
 export type TestItemDraft =

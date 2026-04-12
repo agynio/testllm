@@ -4,7 +4,11 @@ import {
   matchInput,
   normalizeRequest,
 } from "@/lib/messages/matching";
-import type { ContentBlock, TestItemRecord } from "@/lib/messages/types";
+import type {
+  ContentBlock,
+  SystemContent,
+  TestItemRecord,
+} from "@/lib/messages/types";
 
 const textBlock = (text: string): ContentBlock => ({ type: "text", text });
 
@@ -30,7 +34,7 @@ const toolResultBlock = (
 
 const systemItem = (
   position: number,
-  content: { text: string } | { blocks: ContentBlock[] }
+  content: SystemContent
 ): TestItemRecord => ({
   id: `sys-${position}`,
   position,
@@ -41,12 +45,13 @@ const systemItem = (
 const messageItem = (
   position: number,
   role: "user" | "assistant",
-  content: string | ContentBlock[]
+  content: string | ContentBlock[],
+  options?: { any_content?: boolean }
 ): TestItemRecord => ({
   id: `msg-${position}`,
   position,
   type: "anthropic_message",
-  content: { role, content },
+  content: { role, content, ...options },
 });
 
 describe("matchInput", () => {
@@ -66,6 +71,38 @@ describe("matchInput", () => {
     if (!isMatchError(result)) {
       expect(result.outputMessage.role).toBe("assistant");
       expect(result.outputMessage.content).toEqual([textBlock("Hi there")]);
+    }
+  });
+
+  it("matches any_content on the system prompt", () => {
+    const sequence = [
+      systemItem(0, { text: "Expected", any_content: true }),
+      messageItem(1, "assistant", "Welcome"),
+    ];
+
+    const input = normalizeRequest("Actual", []);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(false);
+    if (!isMatchError(result)) {
+      expect(result.outputMessage.content).toEqual([textBlock("Welcome")]);
+    }
+  });
+
+  it("matches any_content on a user message", () => {
+    const sequence = [
+      messageItem(0, "user", "Expected", { any_content: true }),
+      messageItem(1, "assistant", "Reply"),
+    ];
+
+    const input = normalizeRequest(undefined, [
+      { role: "user", content: "Actual" },
+    ]);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(false);
+    if (!isMatchError(result)) {
+      expect(result.outputMessage.content).toEqual([textBlock("Reply")]);
     }
   });
 
@@ -110,6 +147,27 @@ describe("matchInput", () => {
       expect(secondResult.outputMessage.content).toEqual([
         textBlock("It is 65F."),
       ]);
+    }
+  });
+
+  it("matches any_content on assistant messages in history", () => {
+    const sequence = [
+      messageItem(0, "user", "Hello"),
+      messageItem(1, "assistant", "Placeholder", { any_content: true }),
+      messageItem(2, "user", "Next"),
+      messageItem(3, "assistant", "Final"),
+    ];
+
+    const input = normalizeRequest(undefined, [
+      { role: "user", content: "Hello" },
+      { role: "assistant", content: "Different" },
+      { role: "user", content: "Next" },
+    ]);
+
+    const result = matchInput(sequence, input);
+    expect(isMatchError(result)).toBe(false);
+    if (!isMatchError(result)) {
+      expect(result.outputMessage.content).toEqual([textBlock("Final")]);
     }
   });
 
@@ -226,7 +284,7 @@ describe("matchInput", () => {
     }
   });
 
-  it("returns input_mismatch when content mismatches", () => {
+  it("returns input_mismatch when content mismatches without any_content", () => {
     const sequence = [
       messageItem(0, "user", "Hello"),
       messageItem(1, "assistant", "Hi"),
