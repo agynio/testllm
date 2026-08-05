@@ -30,6 +30,7 @@ export interface MessageContent {
   role: MessageRole;
   content: string | ContentBlock[];
   any_content?: boolean;
+  content_contains?: string;
 }
 
 export interface BaseTestItemRecord {

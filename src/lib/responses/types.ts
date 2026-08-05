@@ -11,6 +11,7 @@ export interface MessageContent {
   // Wildcards are only meaningful for input (non-assistant) messages.
   any_role?: boolean;
   any_content?: boolean;
+  content_contains?: string;
   repeat?: boolean;
 }
 

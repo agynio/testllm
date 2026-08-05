@@ -353,15 +353,21 @@ function compareItems(
   if (expected.type === "message" && actual.type === "message") {
     const content = expected.content;
     const roleMatches = content.any_role || content.role === actual.role;
-    const contentMatches =
-      content.any_content || content.content === actual.content;
+    const contains = "content_contains" in content ? content.content_contains : undefined;
+    const contentMatches = content.any_content
+      ? true
+      : contains !== undefined
+        ? actual.content.includes(contains)
+        : content.content === actual.content;
     if (!roleMatches || !contentMatches) {
       const roleLabel = content.any_role
         ? "any role"
         : `role '${content.role}'`;
       const contentLabel = content.any_content
         ? "any content"
-        : `content '${content.content}'`;
+        : contains !== undefined
+          ? `content containing '${contains}'`
+          : `content '${content.content}'`;
       return {
         status: 400,
         message:
