@@ -6,6 +6,7 @@ const InputMessageContentSchema = z.object({
   content: z.string(),
   any_role: z.boolean().optional(),
   any_content: z.boolean().optional(),
+  content_contains: z.string().optional(), // substring match instead of equality
   repeat: z.boolean().optional(),
 });
 
@@ -59,6 +60,7 @@ const AnthropicMessageContentSchema = z.object({
   role: z.enum(["user", "assistant"]),
   content: z.union([z.string(), z.array(ContentBlockSchema)]),
   any_content: z.boolean().optional(),
+  content_contains: z.string().optional(), // substring match instead of equality
 });
 
 const AnthropicSystemItemSchema = z.object({

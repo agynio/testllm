@@ -39,6 +39,7 @@ const StoredMessageContentSchema = z.object({
   role: z.enum(["user", "assistant"]),
   content: MessageContentSchema,
   any_content: z.boolean().optional(),
+  content_contains: z.string().optional(),
 });
 
 const TestItemRecordSchema = z.discriminatedUnion("type", [
@@ -156,6 +157,12 @@ function blocksEqual(expected: ContentBlock[], actual: ContentBlock[]): boolean 
   return expected.every((block, index) => compareBlock(block, actual[index]));
 }
 
+function blocksContain(actual: ContentBlock[], needle: string): boolean {
+  return actual.some(
+    (block) => block.type === "text" && block.text.includes(needle)
+  );
+}
+
 function compareBlock(expected: ContentBlock, actual: ContentBlock): boolean {
   if (expected.type !== actual.type) return false;
 
@@ -242,6 +249,16 @@ export function matchInput(
 
     const expectedMessage = normalizeStoredMessage(item.content);
     const anyContent = item.content.any_content === true;
+    const contains = item.content.content_contains;
+    const contentMatches = (actual: ContentBlock[]) =>
+      anyContent ||
+      (contains !== undefined
+        ? blocksContain(actual, contains)
+        : blocksEqual(expectedMessage.content, actual));
+    const expectedLabel = () =>
+      contains !== undefined
+        ? `content containing '${contains}'`
+        : `content ${formatBlocks(expectedMessage.content)}`;
 
     if (expectedMessage.role === "user") {
       if (messageIndex >= input.messages.length) {
@@ -256,11 +273,10 @@ export function matchInput(
         );
       }
 
-      if (!anyContent && !blocksEqual(expectedMessage.content, actual.content)) {
+      if (!contentMatches(actual.content)) {
         return mismatch(
           item.position,
-          `expected content ${formatBlocks(expectedMessage.content)}, ` +
-            `got ${formatBlocks(actual.content)}`
+          `expected ${expectedLabel()}, got ${formatBlocks(actual.content)}`
         );
       }
 
@@ -280,11 +296,10 @@ export function matchInput(
       );
     }
 
-    if (!anyContent && !blocksEqual(expectedMessage.content, actual.content)) {
+    if (!contentMatches(actual.content)) {
       return mismatch(
         item.position,
-        `expected content ${formatBlocks(expectedMessage.content)}, ` +
-          `got ${formatBlocks(actual.content)}`
+        `expected ${expectedLabel()}, got ${formatBlocks(actual.content)}`
       );
     }
 

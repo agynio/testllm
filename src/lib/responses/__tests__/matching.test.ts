@@ -212,6 +212,33 @@ describe("matchInput", () => {
     }
   });
 
+  it("matches content_contains against a prefixed body", () => {
+    const sequence = [
+      messageItem(0, "user", "", { content_contains: "hello" }),
+      messageItem(1, "assistant", "Output"),
+    ];
+    const input = normalizeInput([
+      { role: "user", content: "thread: abc\nfrom: @bob\n---\nhello" },
+    ]);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(false);
+  });
+
+  it("rejects content_contains when the substring is absent", () => {
+    const sequence = [
+      messageItem(0, "user", "", { content_contains: "hello" }),
+      messageItem(1, "assistant", "Output"),
+    ];
+    const input = normalizeInput([{ role: "user", content: "goodbye" }]);
+    const result = matchInput(sequence, input);
+
+    expect(isMatchError(result)).toBe(true);
+    if (isMatchError(result)) {
+      expect(result.message).toContain("content containing 'hello'");
+    }
+  });
+
   it("matches any_role without requiring exact role", () => {
     const sequence = [
       messageItem(0, "user", "Hello", { any_role: true }),
