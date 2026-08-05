@@ -53,6 +53,7 @@ const StoredMessageContentSchema = z.object({
   // Wildcards are only meaningful for input (non-assistant) messages.
   any_role: z.boolean().optional(),
   any_content: z.boolean().optional(),
+  content_contains: z.string().optional(),
   repeat: z.boolean().optional(),
 });
 

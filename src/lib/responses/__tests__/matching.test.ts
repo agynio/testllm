@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  parseTestSequence,
   InputSchema,
   isMatchError,
   matchInput,
@@ -14,7 +15,12 @@ const messageItem = (
   position: number,
   role: MessageRole,
   content: string,
-  options?: { any_role?: boolean; any_content?: boolean; repeat?: boolean }
+  options?: {
+    any_role?: boolean;
+    any_content?: boolean;
+    repeat?: boolean;
+    content_contains?: string;
+  }
 ): TestItemRecord => ({
   id: `msg-${position}`,
   position,
@@ -210,6 +216,19 @@ describe("matchInput", () => {
       expect(result.outputItems).toHaveLength(1);
       expect(result.outputItems[0].type).toBe("message");
     }
+  });
+
+  it("keeps content_contains when parsing a stored sequence", () => {
+    const parsed = parseTestSequence([
+      {
+        id: "msg-0",
+        position: 0,
+        type: "message",
+        content: { role: "user", content: "", content_contains: "hello" },
+      },
+    ]);
+
+    expect(parsed[0].content).toMatchObject({ content_contains: "hello" });
   });
 
   it("matches content_contains against a prefixed body", () => {
