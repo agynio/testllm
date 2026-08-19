@@ -511,6 +511,39 @@ describe("function_call_output JSON-semantic comparison", () => {
     expect(isMatchError(result)).toBe(true);
   });
 
+  // The message named the call_id twice and never the output, so a mismatch in
+  // the one field that differed read as "expected X, got X".
+  it("names the output when only the output differs", () => {
+    const sequence = [
+      messageItem(0, "user", "Create entity"),
+      functionCallItem(1, "fc_mem_001", "create_entities", "{}"),
+      functionCallOutputItem(2, "fc_mem_001", '{"entities":[{"name":"test"}]}'),
+      messageItem(3, "assistant", "Done"),
+    ];
+    const input = normalizeInput([
+      { role: "user", content: "Create entity" },
+      {
+        type: "function_call",
+        call_id: "fc_mem_001",
+        name: "create_entities",
+        arguments: "{}",
+      },
+      {
+        type: "function_call_output",
+        call_id: "fc_mem_001",
+        output: '{"entities":[{"name":"different"}]}',
+      },
+    ]);
+
+    const result = matchInput(sequence, input);
+    expect(isMatchError(result)).toBe(true);
+    if (isMatchError(result)) {
+      expect(result.message).toContain("output differs");
+      expect(result.message).toContain("different");
+      expect(result.message).toContain("test");
+    }
+  });
+
   it("compares non-JSON output as exact strings", () => {
     const sequence = [
       messageItem(0, "user", "Run tool"),
