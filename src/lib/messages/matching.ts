@@ -14,8 +14,15 @@ const MessageContentSchema = z.union([
   z.array(ContentBlockSchema),
 ]);
 
+// A client may put system content in the messages array rather than in the
+// top-level system field, and Anthropic's own CLI does: Claude Code appends its
+// subagent listing as a role "system" message. Refusing it made every request
+// from that client a 400 before any matching happened -- "messages.1.role:
+// Invalid option" -- which reads as a broken test rather than as a shape this
+// service declined to model. The Responses schema has always accepted the same
+// thing.
 export const MessageSchema = z.object({
-  role: z.enum(["user", "assistant"]),
+  role: z.enum(["user", "system", "assistant"]),
   content: MessageContentSchema,
 });
 
@@ -91,14 +98,25 @@ export function normalizeRequest(
   system: z.infer<typeof SystemSchema> | undefined,
   messages: z.infer<typeof MessagesSchema>
 ): NormalizedInput {
+  // System content is system content wherever it arrived. Folding it into the
+  // system field rather than leaving it in the sequence is what lets a test
+  // describe a conversation as its author thinks of it -- a system prompt, then
+  // the turns -- without also describing where each client chose to put it.
+  const systemBlocks: ContentBlock[] = system
+    ? normalizeBlocks(system as string | ContentBlock[])
+    : [];
+  const turns: NormalizedMessage[] = [];
+  for (const message of messages) {
+    const blocks = normalizeBlocks(message.content as string | ContentBlock[]);
+    if (message.role === "system") {
+      systemBlocks.push(...blocks);
+      continue;
+    }
+    turns.push({ role: message.role, content: blocks });
+  }
   return {
-    system: system
-      ? { blocks: normalizeBlocks(system as string | ContentBlock[]) }
-      : null,
-    messages: messages.map((message) => ({
-      role: message.role,
-      content: normalizeBlocks(message.content as string | ContentBlock[]),
-    })),
+    system: systemBlocks.length > 0 ? { blocks: systemBlocks } : null,
+    messages: turns,
   };
 }
 

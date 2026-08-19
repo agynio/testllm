@@ -74,6 +74,31 @@ describe("matchInput", () => {
     }
   });
 
+  // Anthropic's own CLI appends its subagent listing as a role "system" message
+  // rather than adding it to the system field, and a test should not have to
+  // know that to describe the conversation.
+  it("folds a system message in the array into the system prompt", () => {
+    const sequence = [
+      systemItem(0, { text: "Expected", any_content: true }),
+      messageItem(1, "user", "Hello"),
+      messageItem(2, "assistant", "Hi there"),
+    ];
+
+    const input = normalizeRequest("You are helpful.", [
+      { role: "user", content: "Hello" },
+      { role: "system", content: "Available agent types for the Agent tool: ..." },
+    ]);
+
+    expect(input.messages.map((message) => message.role)).toEqual(["user"]);
+    expect(input.system?.blocks).toHaveLength(2);
+
+    const result = matchInput(sequence, input);
+    expect(isMatchError(result)).toBe(false);
+    if (!isMatchError(result)) {
+      expect(result.outputMessage.content).toEqual([textBlock("Hi there")]);
+    }
+  });
+
   it("matches any_content on the system prompt", () => {
     const sequence = [
       systemItem(0, { text: "Expected", any_content: true }),
