@@ -300,6 +300,15 @@ export function matchInput(
  * If both strings are valid JSON, compare the parsed values (ignoring key order).
  * Otherwise, fall back to exact string comparison.
  */
+// Enough of a value to see what differed, without turning a mismatch into a
+// wall of JSON. A tool result can be a whole file listing.
+function summarize(value: string): string {
+  const maxLength = 300;
+  const collapsed = value.replace(/\s+/g, " ").trim();
+  if (collapsed.length <= maxLength) return JSON.stringify(collapsed);
+  return JSON.stringify(collapsed.slice(0, maxLength)) + `... (${collapsed.length} chars)`;
+}
+
 function outputMatches(expected: string, actual: string): boolean {
   if (expected === actual) return true;
   try {
@@ -409,16 +418,27 @@ function compareItems(
     actual.type === "function_call_output"
   ) {
     const content = expected.content;
-    if (
-      content.call_id !== actual.call_id ||
-      !outputMatches(content.output, actual.output)
-    ) {
+    if (content.call_id !== actual.call_id) {
       return {
         status: 400,
         message:
           `Input mismatch at position ${position}: ` +
           `expected function_call_output with call_id '${content.call_id}', ` +
           `got function_call_output with call_id '${actual.call_id}'`,
+        type: "invalid_request_error",
+        code: "input_mismatch",
+      };
+    }
+    // Naming the call_id twice is what this said when only the output differed
+    // -- "expected ... call_id 'fc_mem_001', got ... call_id 'fc_mem_001'" --
+    // so the one field that did not match was the one field never shown.
+    if (!outputMatches(content.output, actual.output)) {
+      return {
+        status: 400,
+        message:
+          `Input mismatch at position ${position}: ` +
+          `function_call_output '${content.call_id}' output differs: ` +
+          `expected ${summarize(content.output)}, got ${summarize(actual.output)}`,
         type: "invalid_request_error",
         code: "input_mismatch",
       };
