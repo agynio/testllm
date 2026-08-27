@@ -151,3 +151,44 @@ describe("formatSSEStream", () => {
     );
   });
 });
+
+describe("namespaced calls in the stream", () => {
+  const call = (namespace?: string): OutputTestItem => ({
+    id: "fc-1",
+    position: 1,
+    type: "function_call",
+    content: {
+      call_id: "fc_mem_001",
+      name: "create_entities",
+      arguments: "{}",
+      ...(namespace ? { namespace } : {}),
+    },
+  });
+
+  const streamedCallItems = async (item: OutputTestItem) => {
+    const events = parseSSE(await readStream(formatSSEStream("model", [item])));
+    return events
+      .map((event) => (event.data as { item?: Record<string, unknown> }).item)
+      .filter((streamed): streamed is Record<string, unknown> => Boolean(streamed))
+      .filter((streamed) => streamed.type === "function_call");
+  };
+
+  // The stream is the only form the agent CLI reads, and it echoes a call back
+  // the way it arrived. A namespace dropped here is a namespace missing from
+  // the reply, and the call stops identifying the tool it named.
+  it("carries the namespace on every streamed function_call item", async () => {
+    const items = await streamedCallItems(call("mcp__memory"));
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) {
+      expect(item.namespace).toBe("mcp__memory");
+    }
+  });
+
+  it("leaves the field off a call that has no namespace", async () => {
+    const items = await streamedCallItems(call());
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) {
+      expect(item).not.toHaveProperty("namespace");
+    }
+  });
+});

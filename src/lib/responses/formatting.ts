@@ -178,7 +178,11 @@ export function formatSSEStream(
     }
 
     const itemId = `fc_${randomUUID()}`;
-    const addedItem: OpenAIOutputItem = {
+    // The stream is the only form codex reads, and it echoes the call back the
+    // way it arrived -- so a namespace missing here is a namespace missing from
+    // the reply, and the call no longer identifies the tool it named.
+    const namespace = item.content.namespace;
+    const addedItem: OpenAIOutputFunctionCall = {
       id: itemId,
       type: "function_call",
       call_id: item.content.call_id,
@@ -186,6 +190,9 @@ export function formatSSEStream(
       arguments: "",
       status: "in_progress",
     };
+    if (namespace) {
+      addedItem.namespace = namespace;
+    }
 
     events.push({
       type: "response.output_item.added",
@@ -211,7 +218,7 @@ export function formatSSEStream(
       sequence_number: sequenceNumber++,
     });
 
-    const completedItem: OpenAIOutputItem = {
+    const completedItem: OpenAIOutputFunctionCall = {
       id: itemId,
       type: "function_call",
       call_id: item.content.call_id,
@@ -219,6 +226,9 @@ export function formatSSEStream(
       arguments: item.content.arguments,
       status: "completed",
     };
+    if (namespace) {
+      completedItem.namespace = namespace;
+    }
 
     events.push({
       type: "response.output_item.done",
