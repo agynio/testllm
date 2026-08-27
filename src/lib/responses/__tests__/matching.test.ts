@@ -569,3 +569,151 @@ describe("function_call_output JSON-semantic comparison", () => {
     expect(isMatchError(result)).toBe(true);
   });
 });
+
+describe("namespaced tool calls", () => {
+  const namespacedCall = (
+    position: number,
+    call_id: string,
+    name: string,
+    args: string,
+    namespace?: string
+  ): TestItemRecord => ({
+    id: `fc-${position}`,
+    position,
+    type: "function_call",
+    content: { call_id, name, arguments: args, namespace },
+  });
+
+  it("matches a call that carries its namespace beside the name", () => {
+    const sequence = [
+      messageItem(0, "user", "Create entity"),
+      namespacedCall(1, "fc_001", "create_entities", "{}", "mcp__memory"),
+      functionCallOutputItem(2, "fc_001", "{}"),
+      messageItem(3, "assistant", "Done"),
+    ];
+    const input = normalizeInput([
+      { role: "user", content: "Create entity" },
+      {
+        type: "function_call",
+        call_id: "fc_001",
+        name: "create_entities",
+        arguments: "{}",
+        namespace: "mcp__memory",
+      },
+      { type: "function_call_output", call_id: "fc_001", output: "{}" },
+    ]);
+    const result = matchInput(sequence, input);
+    expect(isMatchError(result)).toBe(false);
+  });
+
+  // The same plain name can exist in more than one namespace, so a call that
+  // names no namespace is not the same call.
+  it("rejects the same name from a different namespace", () => {
+    const sequence = [
+      messageItem(0, "user", "Create entity"),
+      namespacedCall(1, "fc_001", "create_entities", "{}", "mcp__memory"),
+      messageItem(2, "assistant", "Done"),
+    ];
+    const input = normalizeInput([
+      { role: "user", content: "Create entity" },
+      {
+        type: "function_call",
+        call_id: "fc_001",
+        name: "create_entities",
+        arguments: "{}",
+        namespace: "mcp__other",
+      },
+    ]);
+    const result = matchInput(sequence, input);
+    expect(isMatchError(result)).toBe(true);
+    if (isMatchError(result)) {
+      expect(result.message).toContain("mcp__memory/create_entities");
+      expect(result.message).toContain("mcp__other/create_entities");
+    }
+  });
+
+  it("emits the namespace on the scripted call", () => {
+    const sequence = [
+      messageItem(0, "user", "Create entity"),
+      namespacedCall(1, "fc_001", "create_entities", "{}", "mcp__memory"),
+    ];
+    const result = matchInput(
+      sequence,
+      normalizeInput([{ role: "user", content: "Create entity" }])
+    );
+    expect(isMatchError(result)).toBe(false);
+    if (!isMatchError(result)) {
+      const item = result.outputItems[0];
+      expect(item.type).toBe("function_call");
+      if (item.type === "function_call") {
+        expect(item.content.namespace).toBe("mcp__memory");
+      }
+    }
+  });
+});
+
+describe("function_call_output substring matching", () => {
+  const looseOutput = (
+    position: number,
+    call_id: string,
+    output_contains: string
+  ): TestItemRecord => ({
+    id: `fco-${position}`,
+    position,
+    type: "function_call_output",
+    content: { call_id, output: "", output_contains },
+  });
+
+  // Codex wraps an MCP result in the wall time the call took, which is a
+  // different number every run.
+  it("matches an output that is only stable in part", () => {
+    const sequence = [
+      messageItem(0, "user", "Create entity"),
+      functionCallItem(1, "fc_001", "create_entities", "{}"),
+      looseOutput(2, "fc_001", '"name":"test_project"'),
+      messageItem(3, "assistant", "Done"),
+    ];
+    const input = normalizeInput([
+      { role: "user", content: "Create entity" },
+      {
+        type: "function_call",
+        call_id: "fc_001",
+        name: "create_entities",
+        arguments: "{}",
+      },
+      {
+        type: "function_call_output",
+        call_id: "fc_001",
+        output:
+          'Wall time: 0.5917 seconds\nOutput:\n{"entities":[{"name":"test_project"}]}',
+      },
+    ]);
+    const result = matchInput(sequence, input);
+    expect(isMatchError(result)).toBe(false);
+  });
+
+  it("still rejects an output missing the part that must be there", () => {
+    const sequence = [
+      messageItem(0, "user", "Create entity"),
+      functionCallItem(1, "fc_001", "create_entities", "{}"),
+      looseOutput(2, "fc_001", '"name":"test_project"'),
+      messageItem(3, "assistant", "Done"),
+    ];
+    const input = normalizeInput([
+      { role: "user", content: "Create entity" },
+      {
+        type: "function_call",
+        call_id: "fc_001",
+        name: "create_entities",
+        arguments: "{}",
+      },
+      {
+        type: "function_call_output",
+        call_id: "fc_001",
+        output: "Wall time: 0.2 seconds\nOutput:\n{}",
+      },
+    ]);
+    const result = matchInput(sequence, input);
+    expect(isMatchError(result)).toBe(true);
+  });
+});

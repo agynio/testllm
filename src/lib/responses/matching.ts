@@ -28,6 +28,7 @@ const InputFunctionCallSchema = z.object({
   call_id: z.string(),
   name: z.string(),
   arguments: z.string(),
+  namespace: z.string().optional(),
 });
 
 const InputFunctionCallOutputSchema = z.object({
@@ -61,11 +62,13 @@ const StoredFunctionCallContentSchema = z.object({
   call_id: z.string(),
   name: z.string(),
   arguments: z.string(),
+  namespace: z.string().optional(),
 });
 
 const StoredFunctionCallOutputContentSchema = z.object({
   call_id: z.string(),
   output: z.string(),
+  output_contains: z.string().optional(),
 });
 
 const TestItemRecordSchema = z.discriminatedUnion("type", [
@@ -132,6 +135,7 @@ export function normalizeInput(input: InputSchemaValue): NormalizedInputItem[] {
         call_id: item.call_id,
         name: item.name,
         arguments: item.arguments,
+        namespace: item.namespace,
       };
     }
 
@@ -309,10 +313,28 @@ function summarize(value: string): string {
   return JSON.stringify(collapsed.slice(0, maxLength)) + `... (${collapsed.length} chars)`;
 }
 
-function outputMatches(expected: string, actual: string): boolean {
-  if (expected === actual) return true;
+// qualify names a tool the way its call carries it: namespaced tools are
+// called by plain name with the namespace beside it, so neither half alone
+// identifies the tool in a message about it.
+function qualify(namespace: string | undefined, name: string): string {
+  return namespace ? `${namespace}/${name}` : name;
+}
+
+// A tool output is not always reproducible. Codex wraps an MCP result in the
+// wall time the call took, which is a different number every run, so a script
+// that has to name the output exactly can never match one. output_contains
+// asks for the part that is stable, the way content_contains already does for
+// a message.
+function outputMatches(
+  expected: { output: string; output_contains?: string },
+  actual: string
+): boolean {
+  if (expected.output_contains !== undefined) {
+    return actual.includes(expected.output_contains);
+  }
+  if (expected.output === actual) return true;
   try {
-    const expectedParsed: unknown = JSON.parse(expected);
+    const expectedParsed: unknown = JSON.parse(expected.output);
     const actualParsed: unknown = JSON.parse(actual);
     return jsonDeepEqual(expectedParsed, actualParsed);
   } catch {
@@ -397,15 +419,17 @@ function compareItems(
     if (
       content.call_id !== actual.call_id ||
       content.name !== actual.name ||
-      content.arguments !== actual.arguments
+      content.arguments !== actual.arguments ||
+      (content.namespace ?? "") !== (actual.namespace ?? "")
     ) {
       return {
         status: 400,
         message:
           `Input mismatch at position ${position}: ` +
-          `expected function_call '${content.name}' with call_id ` +
-          `'${content.call_id}', got function_call '${actual.name}' ` +
-          `with call_id '${actual.call_id}'`,
+          `expected function_call '${qualify(content.namespace, content.name)}' ` +
+          `with call_id '${content.call_id}', got function_call ` +
+          `'${qualify(actual.namespace, actual.name)}' with call_id ` +
+          `'${actual.call_id}'`,
         type: "invalid_request_error",
         code: "input_mismatch",
       };
@@ -432,7 +456,7 @@ function compareItems(
     // Naming the call_id twice is what this said when only the output differed
     // -- "expected ... call_id 'fc_mem_001', got ... call_id 'fc_mem_001'" --
     // so the one field that did not match was the one field never shown.
-    if (!outputMatches(content.output, actual.output)) {
+    if (!outputMatches(content, actual.output)) {
       return {
         status: 400,
         message:

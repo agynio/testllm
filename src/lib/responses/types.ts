@@ -19,11 +19,15 @@ export interface FunctionCallContent {
   call_id: string;
   name: string;
   arguments: string;
+  // A tool that belongs to a namespace is called by its plain name with the
+  // namespace alongside it, not by a name the two are joined into.
+  namespace?: string;
 }
 
 export interface FunctionCallOutputContent {
   call_id: string;
   output: string;
+  output_contains?: string; // substring match instead of equality
 }
 
 export type ItemContent =
@@ -71,6 +75,7 @@ export interface NormalizedInputFunctionCall {
   call_id: string;
   name: string;
   arguments: string;
+  namespace?: string;
 }
 
 export interface NormalizedInputFunctionCallOutput {
@@ -105,6 +110,7 @@ export interface OpenAIOutputFunctionCall extends Prisma.InputJsonObject {
   name: string;
   arguments: string;
   status: "completed" | "in_progress";
+  namespace?: string;
 }
 
 export type OpenAIOutputItem =
