@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import type {
+  OpenAIOutputFunctionCall,
   OpenAIOutputItem,
   OpenAIResponse,
   OpenAIResponseCompleted,
@@ -40,7 +41,7 @@ export function formatOutputItem(item: OutputTestItem): OpenAIOutputItem {
     };
   }
 
-  return {
+  const call: OpenAIOutputFunctionCall = {
     id: `fc_${randomUUID()}`,
     type: "function_call",
     call_id: item.content.call_id,
@@ -48,6 +49,10 @@ export function formatOutputItem(item: OutputTestItem): OpenAIOutputItem {
     arguments: item.content.arguments,
     status: "completed",
   };
+  if (item.content.namespace) {
+    call.namespace = item.content.namespace;
+  }
+  return call;
 }
 
 export function formatResponse(

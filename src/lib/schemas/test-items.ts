@@ -19,11 +19,13 @@ const FunctionCallContentSchema = z.object({
   call_id: z.string(),
   name: z.string(),
   arguments: z.string(),
+  namespace: z.string().optional(), // the tool's namespace, carried beside the name
 });
 
 const FunctionCallOutputContentSchema = z.object({
   call_id: z.string(),
   output: z.string(),
+  output_contains: z.string().optional(), // substring match instead of equality
 });
 
 const MessageItemSchema = z.object({
