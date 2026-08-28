@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatSSEStream } from "@/lib/responses/formatting";
+import { formatSSEStream, usageFor } from "@/lib/responses/formatting";
 import type { OutputTestItem, SSEEvent } from "@/lib/responses/types";
 
 async function readStream(stream: ReadableStream<Uint8Array>) {
@@ -190,5 +190,44 @@ describe("namespaced calls in the stream", () => {
     for (const item of items) {
       expect(item).not.toHaveProperty("namespace");
     }
+  });
+});
+
+describe("usage reporting", () => {
+  const assistant = (text: string): OutputTestItem => ({
+    id: "msg-1",
+    position: 1,
+    type: "message",
+    content: { role: "assistant", content: text },
+  });
+
+  // What meters a turn cannot tell a scripted provider from a real one, so a
+  // reply that reports nothing is a turn that never happened as far as usage
+  // is concerned.
+  it("reports tokens for both sides of a turn", async () => {
+    const events = parseSSE(
+      await readStream(formatSSEStream("model", [assistant("a reply worth counting")], undefined, {
+        input_tokens: 12,
+        output_tokens: 5,
+        total_tokens: 17,
+      })),
+    );
+    const completed = events.find((event) => event.event === "response.completed");
+    expect((completed?.data as { response?: { usage?: unknown } }).response?.usage).toEqual({
+      input_tokens: 12,
+      output_tokens: 5,
+      total_tokens: 17,
+    });
+  });
+
+  it("counts something for a reply that has text", () => {
+    const usage = usageFor("a question from the caller", [assistant("an answer of some length")]);
+    expect(usage.input_tokens).toBeGreaterThan(0);
+    expect(usage.output_tokens).toBeGreaterThan(0);
+    expect(usage.total_tokens).toBe(usage.input_tokens + usage.output_tokens);
+  });
+
+  it("charges nothing for nothing", () => {
+    expect(usageFor("", [])).toEqual({ input_tokens: 0, output_tokens: 0, total_tokens: 0 });
   });
 });

@@ -3,6 +3,7 @@ import {
   createResponseMetadata,
   formatResponse,
   formatSSEStream,
+  usageFor,
 } from "@/lib/responses/formatting";
 import { parseResponsesRequestBody } from "@/lib/responses/request";
 import { resolveResponseMatch } from "@/lib/responses/resolve";
@@ -26,9 +27,11 @@ export async function POST(
   if (!matchResult.ok) return matchResult.response;
 
   const metadata = createResponseMetadata();
+  // The whole conversation so far is what this turn was charged for.
+  const usage = usageFor(JSON.stringify(input), matchResult.outputItems);
 
   if (stream) {
-    const streamBody = formatSSEStream(model, matchResult.outputItems, metadata);
+    const streamBody = formatSSEStream(model, matchResult.outputItems, metadata, usage);
     return new Response(streamBody, {
       headers: {
         "Content-Type": "text/event-stream",
@@ -37,6 +40,6 @@ export async function POST(
     });
   }
 
-  const response = formatResponse(model, matchResult.outputItems, metadata);
+  const response = formatResponse(model, matchResult.outputItems, metadata, usage);
   return NextResponse.json(response);
 }
