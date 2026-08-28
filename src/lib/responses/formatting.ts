@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import type {
   OpenAIOutputFunctionCall,
+  OpenAIUsage,
   OpenAIOutputItem,
   OpenAIResponse,
   OpenAIResponseCompleted,
@@ -55,10 +56,39 @@ export function formatOutputItem(item: OutputTestItem): OpenAIOutputItem {
   return call;
 }
 
+// A turn costs tokens, and what reads them cannot tell a scripted provider
+// from a real one: the platform meters what the provider reports, so reporting
+// nothing -- or reporting zero -- makes usage untestable end to end. Counted
+// from the text rather than measured, which is wrong in the way every
+// estimator is wrong and right in the way that matters here: same conversation,
+// same number.
+const CHARS_PER_TOKEN = 4;
+
+function countTokens(text: string): number {
+  const trimmed = text.trim();
+  if (!trimmed) return 0;
+  return Math.ceil(trimmed.length / CHARS_PER_TOKEN);
+}
+
+function outputText(items: OutputTestItem[]): string {
+  return items
+    .map((item) =>
+      item.type === "message" ? item.content.content : `${item.content.name}${item.content.arguments}`
+    )
+    .join(" ");
+}
+
+export function usageFor(inputText: string, outputItems: OutputTestItem[]): OpenAIUsage {
+  const input_tokens = countTokens(inputText);
+  const output_tokens = countTokens(outputText(outputItems));
+  return { input_tokens, output_tokens, total_tokens: input_tokens + output_tokens };
+}
+
 export function formatResponse(
   model: string,
   outputItems: OutputTestItem[],
-  metadata: ResponseMetadata = createResponseMetadata()
+  metadata: ResponseMetadata = createResponseMetadata(),
+  usage: OpenAIUsage = usageFor("", outputItems)
 ): OpenAIResponse {
   return {
     id: metadata.responseId,
@@ -67,13 +97,15 @@ export function formatResponse(
     model,
     output: outputItems.map(formatOutputItem),
     status: "completed",
+    usage,
   };
 }
 
 export function formatSSEStream(
   model: string,
   outputItems: OutputTestItem[],
-  metadata: ResponseMetadata = createResponseMetadata()
+  metadata: ResponseMetadata = createResponseMetadata(),
+  usage: OpenAIUsage = usageFor("", outputItems)
 ): ReadableStream<Uint8Array> {
   const responseId = metadata.responseId;
   const createdAt = metadata.createdAt;
@@ -247,11 +279,7 @@ export function formatSSEStream(
     model,
     output: completedOutput,
     status: "completed",
-    usage: {
-      input_tokens: 0,
-      output_tokens: 0,
-      total_tokens: 0,
-    },
+    usage,
   };
 
   events.push({
